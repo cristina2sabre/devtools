@@ -454,13 +454,13 @@ namespace CoApp.Autopackage {
         }
 
         internal void SaveModifiedBinaries() {
-            Console.WriteLine("(info) ... waiting for binary file modifications to complete ...");
+            // Console.WriteLine("(info) ... waiting for binary file modifications to complete ...");
             _tasks.WaitAll();
-            Console.WriteLine("(info) ... modifications complete, now saving binary files ...");
+            // Console.WriteLine("(info) ... modifications complete, now saving binary files ...");
             var saving = Binary.Files.Where(each => each.Modified).Select(each => each.Save());
             try {
                 Task.WaitAll(saving.ToArray());
-                Console.WriteLine("(info) ... done saving binary files ...");
+                // Console.WriteLine("(info) ... done saving binary files ...");
             } catch( Exception e) {
                 
                 if( e.GetType() == typeof(AggregateException)) {
@@ -656,9 +656,9 @@ namespace CoApp.Autopackage {
                             MessageCode.AssemblyLinkerError, null, "Unable to make policy assembly\r\n{0}",
                             Tools.AssemblyLinker.StandardError + Tools.AssemblyLinker.StandardOut);
                     }
-                    Logger.Message("About to sign {0}", policyFile);
+                    // Logger.Message("About to sign {0}", policyFile);
                     DigitallySign(policyFile);
-                    Logger.Message("Should have signed {0}: Is Signed: {1}", policyFile, Verifier.HasValidSignature(policyFile));
+                    //Logger.Message("Should have signed {0}: Is Signed: {1}", policyFile, Verifier.HasValidSignature(policyFile));
 
                     // and now we can create assembly entries for these.
                     Assemblies.Add(new PackageAssembly(Path.GetFileName(policyFile), null, new[] {policyFile, policyConfigFile}));

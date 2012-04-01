@@ -50,6 +50,7 @@
     <Compile Include="Toolkit\Collections\LazyEnumerable.cs" />
     <Compile Include="Toolkit\Collections\NullableCollectionDictionary.cs" />
     <Compile Include="Toolkit\Collections\VirtualEnumerator.cs" />
+    <Compile Include="Toolkit\Debugging\Monitor.cs" />
     <Compile Include="Toolkit\DynamicXml\DynamicAttributes.cs" />
     <Compile Include="Toolkit\DynamicXml\DynamicCode.cs" />
     <Compile Include="Toolkit\DynamicXml\DynamicDataRow.cs" />

@@ -491,7 +491,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                 if (_manifest != null ) {
                     _pendingChanges = _manifest.Modified || _pendingChanges;
                 }
-                Logger.Message("Saving Binary '{0}' : Pending Changes: {1} ", _filename, _pendingChanges);
+                // Logger.Message("Saving Binary '{0}' : Pending Changes: {1} ", _filename, _pendingChanges);
                 if (_pendingChanges) {
                    
                     // saves any changes made to the binary.

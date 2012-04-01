@@ -229,17 +229,6 @@ namespace CoApp.mkRepo {
             // PackageFeed.Add(PackageModel);
         }
 
-        private void WaitForPackageManagerToComplete() {
-            var trigger = new ManualResetEvent(!_pm.IsConnected || _pm.ActiveCalls == 0);
-            Action whenTriggered = () => trigger.Set();
-
-            _pm.Completed += whenTriggered;
-
-            WaitHandle.WaitAny(new[] { CancellationTokenSource.Token.WaitHandle, trigger });
-
-            _pm.Completed -= whenTriggered;
-        }
-
         private void UnknownPackage(string canonicalName) {
             Console.WriteLine("Unknown Package {0}", canonicalName);
         }

@@ -64,6 +64,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RepositoryService", "Reposi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OAuthTool", "OAuthTool.csproj", "{2C4DBA1B-1271-499E-B3F5-8F699CD75ADB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DebugWatch", "DebugWatch.csproj", "{040B59F0-2C20-4603-AB6B-59D474B84F26}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -122,6 +124,10 @@ Global
 		{2C4DBA1B-1271-499E-B3F5-8F699CD75ADB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2C4DBA1B-1271-499E-B3F5-8F699CD75ADB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2C4DBA1B-1271-499E-B3F5-8F699CD75ADB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{040B59F0-2C20-4603-AB6B-59D474B84F26}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{040B59F0-2C20-4603-AB6B-59D474B84F26}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{040B59F0-2C20-4603-AB6B-59D474B84F26}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{040B59F0-2C20-4603-AB6B-59D474B84F26}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

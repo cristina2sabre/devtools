@@ -46,6 +46,7 @@ files[exes] {
     
     include: {
         "autopackage.exe",
+        "debugwatch.exe",
         "mkrepo.exe",
         "ptk.exe",
         "quicktool.exe",

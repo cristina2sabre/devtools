@@ -421,7 +421,7 @@ namespace CoApp.Autopackage {
 
             // recognize the new package in case it is needed for another package.
             if (!string.IsNullOrEmpty(msiFile) && File.Exists(msiFile)) {
-                Console.WriteLine("\r\n Recognizing: {0}", msiFile);
+                // Console.WriteLine("\r\n Recognizing: {0}", msiFile);
                 PackageManager.Instance.RecognizeFile(null, msiFile, null, _messages).Wait();
             }
 

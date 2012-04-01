@@ -164,7 +164,7 @@ namespace CoApp.Bootstrapper {
             // start showin' the GUI.
             // Application.ResourceAssembly = Assembly.GetExecutingAssembly();
             new Application {
-                StartupUri = new Uri("MainWindow.xaml", UriKind.Relative)
+                StartupUri = new Uri("managed-bootstrap/MainWindow.xaml", UriKind.Relative)
             }.Run();
         }
 

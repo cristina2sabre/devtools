@@ -881,7 +881,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                 }
 
                 _saving = Task<Binary>.Factory.StartNew(() => {
-                    Console.WriteLine("Actual Signing Process started for [{0}]/[{1}]", Filename , WorkingCopy);
+                    // Console.WriteLine("Actual Signing Process started for [{0}]/[{1}]", Filename , WorkingCopy);
                     if (!IsManaged) {
                         StripSignatures(WorkingCopy); // this is irrelevant if the binary is managed--we'll be writing out a new one.
                     }
@@ -1083,7 +1083,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
 
                     LoadMD5().Wait();
 
-                    Console.WriteLine("Replacing original File [{0}]", Filename);
+                    // Console.WriteLine("Replacing original File [{0}]", Filename);
                     Filename.TryHardToDelete();
                     File.Copy(WorkingCopy, Filename);
 
@@ -1092,7 +1092,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                     _modifiedManaged = false;
                     _modifiedSignature = false;
 
-                    Console.WriteLine("Completed Signing Process started for [{0}]/[{1}]", Filename, WorkingCopy);
+                    // Console.WriteLine("Completed Signing Process started for [{0}]/[{1}]", Filename, WorkingCopy);
                     return this;
                 });
                 _saving.ContinueWith((a) => { _saving = null; }, TaskContinuationOptions.AttachedToParent);
