@@ -157,7 +157,7 @@ namespace CoApp.Autopackage {
                         AddIcon(k, Image.FromStream(srcStream));
                     }
                 } catch(Exception e) {
-                    Console.WriteLine("{0} --- {1}", e.Message,e.StackTrace);
+                    // Console.WriteLine("{0} --- {1}", e.Message,e.StackTrace);
                 }
             }
         }
@@ -269,6 +269,7 @@ namespace CoApp.Autopackage {
         }
 
         private void AddAssembliesToWix() {
+            int index = 0;
             foreach (var assembly in Model.Assemblies.Where(each => each.IsNative || each.IsNativePolicy)) {
                 var manifestFilename = assembly.Name + ".manifest";
                 var catFilename = assembly.Name + ".cat";
@@ -341,9 +342,9 @@ namespace CoApp.Autopackage {
                     //if (!File.Exists(localPath)) {
                       //  File.Copy(file.SourcePath, localPath);
                     //}
-
+                    
                     newFile = component.Add("File");
-                    newFile.Attributes.Id = "X" + filename.MakeSafeDirectoryId().MD5Hash();
+                    newFile.Attributes.Id = "X"+(index++) + filename.MakeSafeDirectoryId().MD5Hash();
                     newFile.Attributes.Name = filename;
                     newFile.Attributes.DiskId = "1";
                     newFile.Attributes.Source = file.SourcePath;
@@ -368,35 +369,44 @@ namespace CoApp.Autopackage {
                 // add the files to the WIX document
             }*/
 
+           
             foreach (var managedAssembly in Model.Assemblies.Where(each => each.IsManaged)) {
-                var component = AddNewComponent(ProductDir, true);
+                // var component = AddNewComponent(ProductDir, true);
                 bool first = true;
 
-                foreach (var file in managedAssembly.SourceFiles) {
-                    var filename = Path.GetFileName(file);
-                    var newFile = component.Add("File");
-                    newFile.Attributes.Id = "X"+filename.MakeSafeDirectoryId().MD5Hash();
-                    newFile.Attributes.Name = filename;
-                    if (first) {
-                        newFile.Attributes.KeyPath = "yes";
-                        newFile.Attributes.Assembly = ".net";
-                        newFile.Attributes.AssemblyManifest = newFile.Attributes.Id;
-                    }
-
-                    newFile.Attributes.DiskId = "1";
-                    /*
-                    // copy every file local. 
-                    var localPath = Path.GetFileName(file).GetFileInTempFolder();
-                    if (!File.Exists(localPath)) {
-                        File.Copy(file, localPath);
-                    }
-                    newFile.Attributes.Source = Path.GetFileName(localPath);
-                    */
-                    newFile.Attributes.Source = file;
+                var folders = managedAssembly.Files.Select(each => Path.GetDirectoryName(each.DestinationPath)).Distinct();
+                foreach (var folder in folders) {
                     
-                    first = false;
-                }
+                    var directoryElement = FindOrCreateDirectory(ProductDir, folder);
+                    var component = AddNewComponent(directoryElement);
+                    var filesInFolder = managedAssembly.Files.Where(each => Path.GetDirectoryName(each.DestinationPath) == folder).ToArray();
 
+                    foreach (var fileEntry in filesInFolder) {
+                        var filename = Path.GetFileName(fileEntry.DestinationPath);
+                        var newFile = component.Add("File");
+                        newFile.Attributes.Id = "X" + ((folder + filename).MakeSafeDirectoryId()).MD5Hash();
+
+                        newFile.Attributes.Name = filename;
+                        if (first) {
+                            newFile.Attributes.KeyPath = "yes";
+                            newFile.Attributes.Assembly = ".net";
+                            newFile.Attributes.AssemblyManifest = newFile.Attributes.Id;
+                        }
+
+                        newFile.Attributes.DiskId = "1";
+                        /*
+                        // copy every file local. 
+                        var localPath = Path.GetFileName(file).GetFileInTempFolder();
+                        if (!File.Exists(localPath)) {
+                            File.Copy(file, localPath);
+                        }
+                        newFile.Attributes.Source = Path.GetFileName(localPath);
+                        */
+                        newFile.Attributes.Source = fileEntry.SourcePath;
+
+                        first = false;
+                    }
+                }
                 // any policy files needed?
                 // foreach( var policy in Model)
             }

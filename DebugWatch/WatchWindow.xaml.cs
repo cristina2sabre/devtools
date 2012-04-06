@@ -17,12 +17,12 @@ namespace DebugWatch {
     using CoApp.Developer.Toolkit.Debugging;
 
     /// <summary>
-    /// Interaction logic for MainWindow.xaml
+    /// Interaction logic for WatchWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window {
+    public partial class WatchWindow : Window {
         public DebugMessages DebugMessages { get; set; }
 
-        public MainWindow() {
+        public WatchWindow() {
             DebugMessages = new DebugMessages();
             InitializeComponent();
             itemsGrid.CanUserAddRows = false;

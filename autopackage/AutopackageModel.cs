@@ -241,7 +241,7 @@ namespace CoApp.Autopackage {
                 // create an assembly for each one of the files.
                 var asmFiles = FileList.ProcessIncludes(null, asmRule, "assemblies", "include", Source.FileRules, Environment.CurrentDirectory);
                 Assemblies.AddRange(
-                    asmFiles.Select(file => new PackageAssembly(Path.GetFileNameWithoutExtension(file.SourcePath), asmRule, file.SourcePath)));
+                    asmFiles.Select(file => new PackageAssembly(Path.GetFileNameWithoutExtension(file.SourcePath), asmRule, file)));
             }
 
             foreach (var asm in Source.AssemblyRules) {
@@ -256,10 +256,19 @@ namespace CoApp.Autopackage {
                 Roles.Add(new Role() { Name = asmName ?? string.Empty, PackageRole = PackageRole.Assembly });
             }
 
+            // unique name/culture?
+            foreach( var asm in Assemblies ) {
+                var conflicts = Assemblies.Where(each => asm != each && each.Name == asm.Name && each.Culture == asm.Culture);
+                foreach (var c in conflicts) {
+                    AutopackageMessages.Invoke.Error(
+                        MessageCode.DuplicateAssemblyDefined, c.Rule.SourceLocation, "Assembly with name/culture '{0}'/'{1}' defined more than once.", c.Name, c.Culture);
+                }
+            }
+/*
             if (assemblyNames.Count() != assemblyNames.Distinct().Count()) {
                 // there is a duplicate there somewhere. run thru the list and rat em out.
                 foreach (var name in assemblyNames) {
-                    var asms = Assemblies.Where(each => each.Name == name);
+                    var asms = Assemblies.Where(each => each.Name == name );
                     if (asms.Count() > 1) {
                         foreach (var a in asms) {
                             AutopackageMessages.Invoke.Error(
@@ -270,6 +279,8 @@ namespace CoApp.Autopackage {
                 // fail fast, this is pointless.
                 return;
             }
+            */
+
 
             // check to see that all the assemblies are the same archetecture.
             var arches = Assemblies.Select(each => each.Architecture).Distinct().ToArray();
@@ -283,17 +294,7 @@ namespace CoApp.Autopackage {
                 return;
             }
 
-            // check to see that all the assemblies are the same version.
-            var versions = Assemblies.Select(each => each.Version).Distinct().ToArray();
-            if (versions.Length > 1) {
-                foreach (var asm in Assemblies) {
-                    AutopackageMessages.Invoke.Error(
-                        MessageCode.MultipleAssemblyVersions, asm.Rule.SourceLocation, "All Assemblies must have the same version. '{0}' Version => {1}.",
-                        asm.Name, asm.Version);
-                }
-                // fail fast, this is pointless.
-                return;
-            }
+            
 
             foreach (var assembly in Assemblies) {
                 assembly.PublicKeyToken = Source.Certificate.PublicKeyToken;
@@ -309,11 +310,11 @@ namespace CoApp.Autopackage {
 
             if( !Name.Equals("coapp.toolkit", StringComparison.CurrentCultureIgnoreCase) ) {
                 // don't auto-add the coapp.toolkit dependency for the toolkit itself.
-                var toolkitPackage = Source.PackageManager.GetPackages("coapp.toolkit-*-any-1e373a58e25250cb", null, null, null, null, null, null, null, null, null, false, messages:AutopackageMain._messages).Result.OrderByDescending(each => each.Version).FirstOrDefault();
+                var toolkitPackage = AutopackageMain._easyPackageManager.GetPackages("coapp.toolkit-*-any-1e373a58e25250cb", null, null, null, null, null, null, null, null, null, false).Result.OrderByDescending(each => each.Version).FirstOrDefault();
                 
                 if( toolkitPackage != null ) {
-                    Source.PackageManager.GetPackageDetails(toolkitPackage.CanonicalName, AutopackageMain._messages).Wait();
-                    Console.WriteLine("Implict Package Dependency: {0} -> {1}", toolkitPackage.CanonicalName, toolkitPackage.ProductCode);
+                    AutopackageMain._easyPackageManager.GetPackageDetails(toolkitPackage.CanonicalName).Wait();
+                    //Console.WriteLine("Implict Package Dependency: {0} -> {1}", toolkitPackage.CanonicalName, toolkitPackage.ProductCode);
                     DependentPackages.Add(toolkitPackage);    
                 }
             }
@@ -322,7 +323,7 @@ namespace CoApp.Autopackage {
                 // for now, lets just see if we can do a package match, and grab just that packages
                 // in the future, we should figure out how to make better decisions for this.
                 try {
-                    var packages = Source.PackageManager.GetPackages(pkgName, null, null, null, null, null, null, null, false, null, false, messages:AutopackageMain._messages).Result.ToArray();
+                    var packages = AutopackageMain._easyPackageManager.GetPackages(pkgName, null, null, null, null, null, null, null, false, null, false).Result.ToArray();
 
                     if( packages.IsNullOrEmpty()) {
                         AutopackageMessages.Invoke.Error( MessageCode.FailedToFindRequiredPackage, null, "Failed to find package '{0}'.", pkgName);
@@ -337,7 +338,7 @@ namespace CoApp.Autopackage {
 
                     Console.WriteLine("Package Dependency: {0} -> {1}", pkg.CanonicalName, pkg.ProductCode);
 
-                    Source.PackageManager.GetPackageDetails(pkg.CanonicalName,AutopackageMain._messages).Wait();
+                    AutopackageMain._easyPackageManager.GetPackageDetails(pkg.CanonicalName).Wait();
 
                     DependentPackages.Add(pkg);
                     
@@ -469,6 +470,12 @@ namespace CoApp.Autopackage {
                 Logger.Error(e);
                 AutopackageMessages.Invoke.Error(MessageCode.SigningFailed, null, "Saving binary failed. (see inner exception ) {0}--{1}",e.Message, e.StackTrace );
             }
+
+            // now, do a post signing check to see that all assemblies are actually signed.
+            foreach( var assembly in Assemblies.Where( each =>!each.FilesAreSigned ) ) {
+                AutopackageMessages.Invoke.Error(MessageCode.AssembliesMustBeSigned, null, "Assembly '{0}' has one or more binaries that are not digitally signed",assembly.Name);
+            }
+
         }
 
         internal void ProcessBasicPackageInformation() {
@@ -490,7 +497,7 @@ namespace CoApp.Autopackage {
                     Version = assembly.Version;
                     if (Version == 0) {
                         AutopackageMessages.Invoke.Error(
-                            MessageCode.AssemblyHasNoVersion, assembly.Rule.SourceLocation, "Assembly '{0}' doesn't have a version.", assembly.Name);
+                            MessageCode.AssemblyHasNoVersion, assembly.Rule.SourceLocation, "Assembly '{0}/{1}' doesn't have a version.", assembly.Name, assembly.Culture ?? "");
                     } else {
                         AutopackageMessages.Invoke.Warning(
                             MessageCode.AssumingVersionFromAssembly, Assemblies.First().Rule.SourceLocation,
@@ -504,40 +511,66 @@ namespace CoApp.Autopackage {
                         break;
                     }
                 }
+                if (Version == 0) {
+                    // check application next 
+                    foreach (var file in DestinationDirectoryFiles) {
+                        var binary = Binary.Load(file.SourcePath).Result;
 
-                // check application next 
-                foreach (var file in DestinationDirectoryFiles) {
-                    var binary = Binary.Load(file.SourcePath).Result;
- 
-                    if (binary.IsPEFile) {
-                        Version = binary.FileVersion;
+                        if (binary.IsPEFile) {
+                            Version = binary.FileVersion;
 
-                        AutopackageMessages.Invoke.Warning(
-                              MessageCode.AssumingVersionFromApplicationFile, null,
-                              "Package Version not specified, assuming version '{0}' from application file '{1}'", Version.ToString(),
-                              file.SourcePath);
+                            AutopackageMessages.Invoke.Warning(
+                                MessageCode.AssumingVersionFromApplicationFile, null,
+                                "Package Version not specified, assuming version '{0}' from application file '{1}'", Version.ToString(),
+                                file.SourcePath);
 
-                        if (Architecture == Architecture.Auto || Architecture == Architecture.Unknown) {
-                            // while we're here, let's grab this as the architecture.
-                            if (binary.IsAnyCpu) {
-                                Architecture = Architecture.Any;
-                            } else if (binary.Is64Bit) {
-                                Architecture = Architecture.x64;
-                            } else {
-                                Architecture = Architecture.x86;
+                            if (Architecture == Architecture.Auto || Architecture == Architecture.Unknown) {
+                                // while we're here, let's grab this as the architecture.
+                                if (binary.IsAnyCpu) {
+                                    Architecture = Architecture.Any;
+                                } else if (binary.Is64Bit) {
+                                    Architecture = Architecture.x64;
+                                } else {
+                                    Architecture = Architecture.x86;
+                                }
                             }
-                        }
 
-                        break;
+                            break;
+                        }
                     }
                 }
 
                 if (Version == 0) {
                     AutopackageMessages.Invoke.Error(MessageCode.UnableToDeterminePackageVersion, null, "Unable to determine package version.");
+                    return; // fast fail.
                 }
+                
+            }
+
+            // set any assemblies without version numbers to package version
+            foreach (var assembly in Assemblies.Where(each => each.Version == 0L)) {
+                assembly.Version = Version;
+            }
+
+            // make sure that all the assemblies have the same version as the package
+            foreach (var assembly in Assemblies.Where(each => each.Version != Version)) {
+                AutopackageMessages.Invoke.Error(MessageCode.AssemblyVersionDoesNotMatch, null, "Assembly '{0}' has different version ({1}) that this package ({2}) .", assembly.Name, assembly.Version, Version);
+            }
+
+            // check to see that all the assemblies are the same version.
+            var versions = Assemblies.Select(each => each.Version).Distinct().ToArray();
+            if (versions.Length > 1) {
+                foreach (var asm in Assemblies) {
+                    AutopackageMessages.Invoke.Error(
+                        MessageCode.MultipleAssemblyVersions, asm.Rule.SourceLocation, "All Assemblies must have the same version. '{0}' Version => {1}.",
+                        asm.Name, asm.Version);
+                }
+                // fail fast, this is pointless.
+                return;
             }
 
             var arch = Source.PackageRules.GetPropertyValue("arch") as string;
+            arch = arch ?? Source.PackageRules.GetPropertyValue("architecture") as string;
             if ((Architecture == Architecture.Auto || Architecture == Architecture.Unknown )&& arch != null) {
                 Architecture = arch;
             }

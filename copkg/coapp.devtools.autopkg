@@ -6,10 +6,6 @@ package {
     display-name: "CoApp Developer Tools";
 }
 
-// requires {
-    //  should be implict now: package: "coapp.toolkit-1.2.*";
-// }
-
 provides {
     feature: "coapp.devtools" = "1.0";
 }
@@ -47,7 +43,7 @@ files[exes] {
     include: {
         "autopackage.exe",
         "debugwatch.exe",
-        "mkrepo.exe",
+//        "mkrepo.exe",
         "ptk.exe",
         "quicktool.exe",
         "scan.exe",

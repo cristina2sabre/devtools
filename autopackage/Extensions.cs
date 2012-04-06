@@ -115,8 +115,9 @@ namespace CoApp.Autopackage {
                         return null;
                     }
                 } else {
-                    var rf = RemoteFile.GetRemoteFile(uri, localFile);
-                    rf.Get().Wait();
+                    var rf = new RemoteFile(uri, localFile);
+                    rf.Get();
+
                     if( !File.Exists(localFile)) {
                         AutopackageMessages.Invoke.Warning(MessageCode.BadLicenseLocation, null, "Unable to retrieve the license for {0} from {1}", value,
                             uri.AbsolutePath);

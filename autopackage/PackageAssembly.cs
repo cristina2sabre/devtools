@@ -35,6 +35,24 @@ namespace CoApp.Autopackage {
         private IEnumerable<Binary> _binaryFiles;
         private IEnumerable<Binary> BinaryFiles { get { return _binaryFiles ?? (_binaryFiles = SourceFiles.Select(each => Binary.Load(each).Result)); }}
 
+        private string _culture;
+        public string Culture {
+            get {
+                if( _culture == null) {
+                    // get culture from file
+                    if(IsManaged) {
+                        _culture = FirstPEBinary.AssemblyCulture;
+                    }
+                    if (_culture == null && Rule.HasProperty("culture") && Rule["culture"].HasValue) {
+                        _culture = Rule["culture"].Value;
+                    }
+                }
+                return string.IsNullOrEmpty(_culture) ? null : _culture;
+            } set {
+                _culture = value;
+            }
+        }
+
         private Architecture _architecture;
         public Architecture Architecture { get {
             if( _architecture == Architecture.Unknown) {
@@ -66,10 +84,9 @@ namespace CoApp.Autopackage {
         internal IEnumerable<string>  SourceFiles {
             get { return _files.Select(each => each.SourcePath); }
         }
-
         public bool FilesAreSigned {
             get {
-                return SourceFiles.All(Toolkit.Crypto.Verifier.HasValidSignature);
+                return PEFiles.All(each => Toolkit.Crypto.Verifier.HasValidSignature(each.Filename));
             }
         }
 
@@ -97,8 +114,30 @@ namespace CoApp.Autopackage {
             set { _isPolicy = value; }
         }
         public FourPartVersion Version { 
+            set {
+                // you can set the version number, only if the version number would otherwise be 0
+                if (Version == value) {
+                    return; // no worries here.
+                }
+
+                if (Version == 0L) {
+                    _version = value;
+                }
+                else {
+                    AutopackageMessages.Invoke.Error(MessageCode.AssemblyVersionDoesNotMatch, Rule.SourceLocation, "Assembly '{0}' has an implicit version({1}), can't set to ({2}).", Name, Version, value);
+                }
+            }
             get {
-                return _version == 0L ? (_version = FirstPEBinary.FileVersion) : _version;
+                if( _version == 0 ) {
+                    _version = FirstPEBinary.AssemblyVersion;
+                    //if (_version == 0) {
+                      //  _version = FirstPEBinary.AssemblyVersion;
+                    //}
+                    if (_version == 0) {
+                        _version = FirstPEBinary.FileVersion;
+                    }
+                }
+                return _version;
             }
         }
         
@@ -123,11 +162,11 @@ namespace CoApp.Autopackage {
             }
         }
 
-        public PackageAssembly(string assemblyName, Rule rule ,string filename ) {
+        /* public PackageAssembly(string assemblyName, Rule rule ,string filename ) {
             Name = assemblyName;
             Rule = rule;
             _files = new FileEntry(filename, Path.GetFileName(filename)).SingleItemAsEnumerable();
-        }
+        } */
 
         
         public PackageAssembly(string assemblyName, Rule rule, IEnumerable<string> files) {
@@ -135,6 +174,12 @@ namespace CoApp.Autopackage {
             Rule = rule;
             // when given just filenames, strip the 
             _files = files.Select(each => new FileEntry(each, Path.GetFileName(each)));
+        }
+
+        public PackageAssembly(string assemblyName, Rule rule, FileEntry file) {
+            Name = assemblyName;
+            Rule = rule;
+            _files = file.SingleItemAsEnumerable();
         }
 
         public PackageAssembly(string assemblyName, Rule rule, IEnumerable<FileEntry> files) {
@@ -158,7 +203,7 @@ namespace CoApp.Autopackage {
                     _assemblyManifest  = new NativeManifest(null) {
                         AssemblyName = Name,
                         AssemblyArchitecture = Architecture,
-                        AssemblyLanguage = "*",
+                        AssemblyLanguage =  Culture ?? "*",
                         AssemblyVersion = Version,
                         AssemblyPublicKeyToken = PublicKeyToken,
                         AssemblyType = AssemblyType.win32

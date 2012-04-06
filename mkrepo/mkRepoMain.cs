@@ -59,7 +59,7 @@ namespace CoApp.mkRepo {
                         Downloader.GetRemoteFile(canonicalName, remoteLocations, localFolder, force, new RemoteFileMessages {
                             Progress = (itemUri, percent) => { "Downloading {0}".format(itemUri.AbsoluteUri).PrintProgressBar(percent); },
                         }, _messages),
-                OperationCancelled = CancellationRequested,
+                OperationCanceled = CancellationRequested,
                 PackageSatisfiedBy = (original, satisfiedBy) => { original.SatisfiedBy = satisfiedBy; },
                 PackageBlocked = BlockedPackage,
                 UnknownPackage = UnknownPackage,

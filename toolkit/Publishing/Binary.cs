@@ -275,6 +275,8 @@ namespace CoApp.Developer.Toolkit.Publishing {
         public readonly Prerequisite<bool> IsValidSigned;
 
         public readonly Prerequisite<bool> IsStrongNamed;
+        public readonly Prerequisite<string> AssemblyCulture;
+        public readonly Prerequisite<FourPartVersion> AssemblyVersion;
         public readonly Prerequisite<bool> IsDelaySigned;
 
         private Assembly _mutableAssembly;
@@ -356,6 +358,9 @@ namespace CoApp.Developer.Toolkit.Publishing {
             IsValidSigned = new Prerequisite<bool>(LoadSignature);
 
             IsStrongNamed = new Prerequisite<bool>(LoadManagedData);
+            AssemblyCulture = new Prerequisite<string>(LoadManagedData);
+            AssemblyVersion = new Prerequisite<FourPartVersion>(LoadManagedData);
+
             IsDelaySigned = new Prerequisite<bool>(LoadManagedData);
 
 
@@ -632,7 +637,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                     }
 
                     ILOnly.Value = module.ILOnly;
-
+                    
                     //Make a mutable copy of the module.
                     var copier = new MetadataDeepCopier(_host);
                     var mutableModule = copier.Copy(module);
@@ -648,11 +653,13 @@ namespace CoApp.Developer.Toolkit.Publishing {
                     //Rewrite the mutable copy. In a real application the rewriter would be a subclass of MetadataRewriter that actually does something.
                     var rewriter = new MetadataRewriter(_host);
                     _mutableAssembly = rewriter.Rewrite(mutableModule) as Assembly;
+                    AssemblyCulture.Value = _mutableAssembly.Culture;
+                    AssemblyVersion.Value = _mutableAssembly.Version;
                 } finally {
                     // delete it, or at least trash it & queue it up for next reboot.
                     // temporaryCopy.TryHardToDelete();
                 }
-
+                
                 try {
                     if (_mutableAssembly != null) {
                         // we should see if we can get assembly attributes, since sometimes they can be set, but not the native ones.
@@ -671,9 +678,9 @@ namespace CoApp.Developer.Toolkit.Publishing {
                                         case "System.Reflection.AssemblyProductAttribute":
                                             _productName = _productName  ?? attributeValue;
                                             break;
-                                        case "System.Reflection.AssemblyVersionAttribute":
-                                            _assemblyVersion = _assemblyVersion == 0L ? (FourPartVersion)attributeValue : _assemblyVersion;
-                                            break;
+                                        // case "System.Reflection.AssemblyVersionAttribute":
+                                           //  _assemblyVersion = _assemblyVersion == 0L ? (FourPartVersion)attributeValue : _assemblyVersion;
+                                            // break;
                                         case "System.Reflection.AssemblyFileVersionAttribute":
                                             _fileVersion = _fileVersion == 0L ? (FourPartVersion) attributeValue : _fileVersion;
                                             _productVersion = _productVersion == 0L ? (FourPartVersion)attributeValue : _productVersion;
@@ -784,7 +791,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                     _comments = _comments ?? TryGetVersionString(versionStringTable, "Comments");
                     _companyName = _companyName ?? TryGetVersionString(versionStringTable, "CompanyName");
                     _productName = _productName ?? TryGetVersionString(versionStringTable, "ProductName");
-                    _assemblyVersion = _assemblyVersion == 0L ? (FourPartVersion)TryGetVersionString(versionStringTable, "Assembly Version") : _assemblyVersion;
+                   // _assemblyVersion = _assemblyVersion == 0L ? (FourPartVersion)TryGetVersionString(versionStringTable, "Assembly Version") : _assemblyVersion;
                     _fileVersion = _fileVersion == 0L ? (FourPartVersion)TryGetVersionString(versionStringTable, "FileVersion") : _fileVersion;
                     _internalName = _internalName ?? TryGetVersionString(versionStringTable, "InternalName");
                     _originalFilename = _originalFilename ?? TryGetVersionString(versionStringTable, "OriginalFilename");
@@ -961,9 +968,9 @@ namespace CoApp.Developer.Toolkit.Publishing {
                                             case "System.Reflection.AssemblyProductAttribute":
                                                 attributeArgument.Value = string.IsNullOrEmpty(AssemblyProduct) ? string.Empty : AssemblyProduct;
                                                 break;
-                                            case "System.Reflection.AssemblyVersionAttribute":
-                                                attributeArgument.Value = (string)AssemblyVersion;
-                                                break;
+                                            //case "System.Reflection.AssemblyVersionAttribute":
+                                               // attributeArgument.Value = (string)AssemblyVersion;
+                                               // break;
                                             case "System.Reflection.AssemblyFileVersionAttribute":
                                                 attributeArgument.Value = (string)AssemblyFileVersion;
                                                 break;
@@ -1052,7 +1059,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                         versionStringTable["CompanyName"] = CompanyName;
                         versionStringTable["FileDescription"] = FileDescription;
                         versionStringTable["Comments"] = _comments;
-                        versionStringTable["Assembly Version"] = _assemblyVersion;
+                        versionStringTable["Assembly Version"] = AssemblyVersion.Value;
                         versionStringTable["FileVersion"] = _fileVersion;
                         versionStringTable["ProductVersion"] = _productVersion;
                         versionStringTable["InternalName"] = _internalName;
@@ -1124,7 +1131,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
         private string _comments;       //AssemblyDescription
         private string _companyName;    //AssemblyCompany
         private string _productName;    //AssemblyProduct
-        private FourPartVersion _assemblyVersion; //AssemblyVersion
+        // private FourPartVersion _assemblyVersion; //AssemblyVersion
         private FourPartVersion _fileVersion;    //AssemblyFileVersion, 
         private FourPartVersion _productVersion;    //<AssemblyFileVersion>
         private string _internalName;   //<filename>
@@ -1239,6 +1246,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
             }
             set { _modifiedResources = true; _fileVersion = value; }
         }
+        /*
         public FourPartVersion AssemblyVersion {
             get {
                 if (_assemblyVersion== 0L) {
@@ -1248,6 +1256,8 @@ namespace CoApp.Developer.Toolkit.Publishing {
             }
             set { _modifiedResources = true; _assemblyVersion = value; }
         }
+         */
+
         public string AssemblyProduct {
             get { return ProductName; }
             set { _modifiedResources = true; ProductName = value; }

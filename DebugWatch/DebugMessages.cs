@@ -42,7 +42,7 @@ namespace CoApp.DebugWatch {
 
 
 
-                var msg = new Message { Process = "{0}({1})".format(args.Process.ProcessName, args.Process.Id), Text = args.Message, FromProcStart = args.SinceProcessStarted.AsDebugOffsetString(), FromFirstEvent = args.SinceFirstEvent.AsDebugOffsetString() };
+                var msg = new Message { Process = "{0}({1})".format(args.Process.ProcessName, args.Process.Id), Text = args.Message.UrlDecode(), FromProcStart = args.SinceProcessStarted.AsDebugOffsetString(), FromFirstEvent = args.SinceFirstEvent.AsDebugOffsetString() };
                 Dispatch(() => Add(msg));
                 
             }

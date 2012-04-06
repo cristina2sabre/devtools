@@ -199,7 +199,7 @@ namespace CoApp.Autopackage {
             ServiceRules = AllRules.GetRulesByName("service").ToArray();
             WebApplicationRules = AllRules.GetRulesByName("web-application").ToArray();
             DriverRules = AllRules.GetRulesByName("driver").ToArray();
-            AllRoles = ApplicationRules.Union(AssemblyRules).Union(DeveloperLibraryRules).Union(SourceCodeRules).Union(ServiceRules).Union(WebApplicationRules).
+            AllRoles = ApplicationRules.Union(AssemblyRules).Union(AssembliesRules).Union(DeveloperLibraryRules).Union(SourceCodeRules).Union(ServiceRules).Union(WebApplicationRules).
                 Union(DriverRules).ToArray();
 
             // check for any roles...

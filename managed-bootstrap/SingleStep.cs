@@ -11,7 +11,9 @@ namespace CoApp.Bootstrapper {
     using System.Net;
     using System.Reflection;
     using System.Runtime.InteropServices;
+    using System.Security.AccessControl;
     using System.Security.Cryptography.X509Certificates;
+    using System.Security.Principal;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Windows;
@@ -90,6 +92,13 @@ namespace CoApp.Bootstrapper {
 
 
     internal class SingleStep {
+        /// <summary>
+        /// This is the version of coapp that must be installed for the bootstrapper to continue.
+        /// This should really only be updated when there is breaking changes in the client library
+        /// </summary>
+        public const string MIN_COAPP_VERSION = "1.2.0.114";
+
+
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
@@ -228,16 +237,44 @@ namespace CoApp.Bootstrapper {
             }
         }
 
+        public static int ToInt32(string str, int defaultValue = 0) {
+            int i;
+            return Int32.TryParse(str, out i) ? i : defaultValue;
+        }
+
+        public static UInt64 VersionStringToUInt64(string version) {
+            if (String.IsNullOrEmpty(version)) {
+                return 0;
+            }
+
+            var vers = version.Split('.');
+            var major = vers.Length > 0 ? ToInt32(vers[0]) : 0;
+            var minor = vers.Length > 1 ? ToInt32(vers[1]) : 0;
+            var build = vers.Length > 2 ? ToInt32(vers[2]) : 0;
+            var revision = vers.Length > 3 ? ToInt32(vers[3]) : 0;
+
+            return (((UInt64)major) << 48) + (((UInt64)minor) << 32) + (((UInt64)build) << 16) + (UInt64)revision;
+        }
+
         internal static bool IsCoAppInstalled {
             get {
                 try {
-                    AssemblyCache.QueryAssemblyInfo("CoApp.Client");
-                    return true;
+                    var requiredVersion = VersionStringToUInt64(MIN_COAPP_VERSION);
+                    var ace = new AssemblyCacheEnum("CoApp.Client");
+                    string assembly;
+                    while ((assembly = ace.GetNextAssembly()) != null ) {
+                        var parts = assembly.Split(", ".ToCharArray(),StringSplitOptions.RemoveEmptyEntries);
+                        // find the "version=" part
+                        if ((from p in parts 
+                             select p.Split('=') into kvp where kvp[0].Equals("Version", StringComparison.InvariantCultureIgnoreCase) 
+                             select VersionStringToUInt64(kvp[1])).Any(installed => installed >= requiredVersion)) {
+                            return true;
+                        }
+                    } 
                 } catch { }
                 return false;
             }
         }
-
 
         private static string GetRegistryValue(string key, string valueName) {
             try {
@@ -277,73 +314,53 @@ namespace CoApp.Bootstrapper {
                 return;
             }
 
-            Logger.Warning("Running CoApp (bypassing UI:{0})", bypassingBootstrapUI);
-            var appDomain = AppDomain.CreateDomain("tmp" + DateTime.Now.Ticks);
+            var appDomain = AppDomain.CreateDomain("appdomain" + DateTime.Now.Ticks);
 
-            // stage one: ensure the engine is running, and make sure that it's finshed warming up.
-            IComparable prep = null;
-
-#if DEBUG_X
-            var localAssembly = AcquireFile("CoApp.Client.dll");
-            Logger.Message("Local Assembly: " + localAssembly);
-            if (!string.IsNullOrEmpty(localAssembly)) {
-                // use the one found locally.
-                prep =
-                    appDomain.CreateInstanceFromAndUnwrap(localAssembly, "CoApp.Toolkit.Engine.Client.InstallerPrep", false, BindingFlags.Default, null, null,
-                        null, null) as IComparable;
-                // if it didn't throw here, we can assume that the CoApp service is running, and we can get to our assembly.
-                Logger.Warning("Done Creating (local) Appdomain");
-            }
-#endif
-            // if we didn't create one with the local assembly (debug)
-            if (prep == null) {
-                prep =
-                    appDomain.CreateInstanceAndUnwrap("CoApp.Client, Version=1.0.0.0, Culture=neutral, PublicKeyToken=1e373a58e25250cb",
-                        "CoApp.Toolkit.Engine.Client.InstallerPrep", false, BindingFlags.Default, null, null, null, null) as IComparable;
+            // if we didn't bypass the UI, then that means *we* had to install CoApp itself 
+            // we need to make sure that the engine knows that we did that.
+            if (!bypassingBootstrapUI) {
+                appDomain.SetData("COAPP_INSTALLED", "TRUE");
             }
 
-            // if it didn't work!
-            if (prep == null) {
-                MainWindow.Fail(LocalizedMessage.IDS_UNABLE_TO_LOCATE_INSTALLER_UI, "CoApp Installer Failed to start up correctly");
-                return; // this will kick off the main window if we were bypassing the UI.
-            }
-
-            // ok, let's spin while we warm up the engine.
-            // if the UI is showing, it can monitor the progress.
-            
-            while ((EngineStartup.Progress = prep.CompareTo(null)) < 100) {
-                Thread.Sleep(10); // yeah, I'm lazy. Get Bent.
-                if (Cancelling) {
+            try {
+                // If we're bypassing the UI, then we can jump straight to the Installer.
+                if (bypassingBootstrapUI) {
+                    // no gui was involved here.
+                    InstallerStageTwo(appDomain);
                     return;
                 }
-            }
-            EngineStartup.Progress = 100;
 
-            // engine is now warm. If we're bypassing the UI, then we can jump straight to the Installer.
-            if (bypassingBootstrapUI) {
-                // no gui was involved here.
-                InstallerStageTwo(appDomain);
-                return;
-            }
+                // otherwise, we have to hide the bootstrapper, and jump to the installer.
+                MainWindow.WhenReady += () => {
+                    InstallerStageTwo(appDomain);
+                };
 
-            // otherwise, we have to hide the bootstrapper, and jump to the installer.
-            MainWindow.WhenReady += () => {
-                MainWindow.MainWin.Visibility = Visibility.Hidden;
-                InstallerStageTwo(appDomain);
-            };
-            Logger.Message("Installer Stage One Complete...");
+                Logger.Message("Installer Stage One Complete...");
+            } catch (Exception e) {
+                Logger.Error("Critical FAIL ");
+                Logger.Error(e);
+                ExitQuick();
+            }
         }
 
         private static void InstallerStageTwo(AppDomain appDomain) {
-            if( Cancelling ) {
-                return;
-            }
+            try {
+                if (Cancelling) {
+                    return;
+                }
 
-            EngineStartup.Progress = 100;
+                EngineStartup.Progress = 100;
 
-            // stage two: close our bootstrap GUI, and start the Installer in the new AppDomain, 
-            // of course, this has all got to happen on the original thread. *sigh*
-            Logger.Message("Got to Installer Stage Two");
+                // stage two: close our bootstrap GUI, and start the Installer in the new AppDomain, 
+                // of course, this has all got to happen on the original thread. *sigh*
+                Logger.Message("Got to Installer Stage Two");
+
+                bool wasCreated;
+                var ewhSec = new EventWaitHandleSecurity();
+                ewhSec.AddAccessRule(new EventWaitHandleAccessRule(new SecurityIdentifier(WellKnownSidType.WorldSid, null), EventWaitHandleRights.FullControl, AccessControlType.Allow));
+                var ping = new EventWaitHandle(false, EventResetMode.ManualReset, "BootstrapperPing", out wasCreated, ewhSec);
+                ping.Reset();
+
 #if DEBUG_X
             var localAssembly = AcquireFile("CoApp.Client.dll");
             Logger.Message("Local Assembly: " + localAssembly);
@@ -352,16 +369,25 @@ namespace CoApp.Bootstrapper {
                 // use the one found locally.
                 appDomain.CreateInstanceFromAndUnwrap(localAssembly, "CoApp.Toolkit.Engine.Client.Installer", false, BindingFlags.Default, null, new[] { MsiFilename }, null, null);
                 // if it didn't throw here, we can assume that the CoApp service is running, and we can get to our assembly.
-                Logger.Warning("Done! Exiting  (debug)");
                 ExitQuick();
             }
-#endif 
-            // meh. use strong named assembly
-            appDomain.CreateInstanceAndUnwrap( "CoApp.Client, Version=1.0.0.0, Culture=neutral, PublicKeyToken=1e373a58e25250cb",
-                "CoApp.Toolkit.Engine.Client.Installer", false, BindingFlags.Default, null, new[] { MsiFilename }, null, null);
+#endif
 
-            // since we've done everything we need to do, we're out of here. Right Now.
-            Logger.Warning("Done! Exiting");
+                Task.Factory.StartNew(() => {
+                    ping.WaitOne();
+                    MainWindow.WhenReady += () => {
+                        MainWindow.MainWin.Visibility = Visibility.Hidden;
+                    };
+                });
+                // meh. use strong named assembly
+                appDomain.CreateInstanceAndUnwrap("CoApp.Client, Version="+MIN_COAPP_VERSION +", Culture=neutral, PublicKeyToken=1e373a58e25250cb",
+                    "CoApp.Toolkit.Engine.Client.Installer", false, BindingFlags.Default, null, new[] { MsiFilename }, null, null);
+                // since we've done everything we need to do, we're out of here. Right Now.
+            }
+            catch (Exception e) {
+                Logger.Error("Critical FAIL ");
+                Logger.Error(e);
+            }
             ExitQuick();
         }
 

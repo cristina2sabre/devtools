@@ -81,7 +81,8 @@ sign {
         PATH=%PATH%;%CD%\ext\tools
      
         REM sign files in release directory
-        simplesigner --nologo  --sign --strong-name ""${release_dir}autopackage.exe"" ""${release_dir}debugwatch.exe"" ""${release_dir}Azure.exe"" ""${release_dir}CoApp.RepositoryService.exe"" ""${release_dir}mkRepo.exe"" ""${release_dir}pTk.exe"" ""${release_dir}QuickTool.exe"" ""${release_dir}Scan.exe"" ""${release_dir}simplesigner.exe"" ""${release_dir}ToolScanner.exe"" ""${release_dir}CoApp.CCI.dll"" ""${release_dir}CoApp.Developer.Toolkit.dll""
+        REM simplesigner --nologo  --sign --strong-name ""${release_dir}autopackage.exe"" ""${release_dir}debugwatch.exe"" ""${release_dir}Azure.exe"" ""${release_dir}CoApp.RepositoryService.exe"" ""${release_dir}mkRepo.exe"" ""${release_dir}pTk.exe"" ""${release_dir}QuickTool.exe"" ""${release_dir}Scan.exe"" ""${release_dir}simplesigner.exe"" ""${release_dir}ToolScanner.exe"" ""${release_dir}CoApp.CCI.dll"" ""${release_dir}CoApp.Developer.Toolkit.dll""
+        simplesigner --nologo  --sign --strong-name ""${release_dir}autopackage.exe"" ""${release_dir}debugwatch.exe"" ""${release_dir}Azure.exe"" ""${release_dir}pTk.exe"" ""${release_dir}QuickTool.exe"" ""${release_dir}Scan.exe"" ""${release_dir}simplesigner.exe"" ""${release_dir}ToolScanner.exe"" ""${release_dir}CoApp.CCI.dll"" ""${release_dir}CoApp.Developer.Toolkit.dll""
     ";
 }
 
@@ -99,8 +100,8 @@ export {
         REM copy tools into ..\tools folder (this should be the one that is committed back when exported)
         xcopy /Q /D /Y  ""${release_dir}autopackage.exe""  ""${tools_dir}"" || goto failed
         xcopy /Q /D /Y  ""${release_dir}Azure.exe""  ""${tools_dir}"" || goto failed
-        xcopy /Q /D /Y  ""${release_dir}CoApp.RepositoryService.exe""  ""${tools_dir}"" || goto failed
-        xcopy /Q /D /Y  ""${release_dir}mkRepo.exe"" ""${tools_dir}"" || goto failed
+        REM xcopy /Q /D /Y  ""${release_dir}CoApp.RepositoryService.exe""  ""${tools_dir}"" || goto failed
+        REM xcopy /Q /D /Y  ""${release_dir}mkRepo.exe"" ""${tools_dir}"" || goto failed
         xcopy /Q /D /Y  ""${release_dir}pTk.exe"" ""${tools_dir}"" || goto failed
         xcopy /Q /D /Y  ""${release_dir}QuickTool.exe"" ""${tools_dir}"" || goto failed
         xcopy /Q /D /Y  ""${release_dir}Scan.exe"" ""${tools_dir}"" || goto failed
@@ -131,8 +132,8 @@ anycpu {
         @"output\any\${cfg}\bin\autopackage.exe",
         @"output\any\${cfg}\bin\debugwatch.exe",
         @"output\any\${cfg}\bin\Azure.exe",
-        @"output\any\${cfg}\bin\RepositoryService.exe",
-        @"output\any\${cfg}\bin\mkRepo.exe",
+//        @"output\any\${cfg}\bin\RepositoryService.exe",
+//        @"output\any\${cfg}\bin\mkRepo.exe",
         @"output\any\${cfg}\bin\pTk.exe",
         @"output\any\${cfg}\bin\QuickTool.exe",
         @"output\any\${cfg}\bin\Scan.exe",

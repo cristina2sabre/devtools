@@ -103,6 +103,7 @@ Manifest Options:
         private bool _strongname;
         private bool _verbose;
         private bool _verify;
+        private bool _justsign;
 
         private string _signingCertPath = string.Empty;
         private string _signingCertPassword;
@@ -159,6 +160,11 @@ Manifest Options:
 
                     case "sign":
                         _sign = true;
+                        break;
+
+                    case "just-sign":
+                        _sign = true;
+                        _justsign = true;
                         break;
 
                     case "strong-name":
@@ -364,7 +370,7 @@ Manifest Options:
                                 origMD5.Add(each, binary.MD5);
 
 
-                                if (binary.IsPEFile) {
+                                if (binary.IsPEFile && !_justsign) {
                                     // do PE file stuff
                                     if (_sign) {
                                         binary.SigningCertificate = _certificate;
