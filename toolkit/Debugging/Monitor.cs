@@ -35,6 +35,21 @@
                     if (result.FirstMessageTime == DateTime.MinValue) {
                         result.FirstMessageTime = msgTime;
                     }
+                    try {
+                        var checkProc = Process.GetProcessById(pid);
+                        if( checkProc.StartTime != result.StartTime ) {
+                            // new proc with same id.
+                            result = new FauxProcess {
+                                ProcessName = checkProc.ProcessName,
+                                StartTime = checkProc.StartTime,
+                                FirstMessageTime = msgTime,
+                                Id = pid
+                            };
+                            ProcessCache[pid] = result;
+                        }
+                    } catch {
+                        
+                    }
                     return result;
                 }
                 try {

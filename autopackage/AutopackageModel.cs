@@ -101,9 +101,8 @@ namespace CoApp.Autopackage {
             }
             AtomFeed = feed;
         }
-
-        internal string GetMacroValue( string macroKey ) {
-            if( macroKey.StartsWith("Package.") ) {
+        internal string GetMacroValue(string macroKey) {
+            if (macroKey.StartsWith("Package.")) {
                 var result = this.SimpleEval(macroKey.Substring(8));
                 if (result == null || string.Empty == result.ToString()) {
                     return null;
@@ -246,6 +245,10 @@ namespace CoApp.Autopackage {
 
             foreach (var asm in Source.AssemblyRules) {
                 var fileList = FileList.ProcessIncludes(null, asm, "assembly", "include", Source.FileRules, Environment.CurrentDirectory);
+                if( string.IsNullOrEmpty(asm.Parameter) ) {
+                    AutopackageMessages.Invoke.Error(
+                       MessageCode.AssemblyHasNoName, asm.SourceLocation, "Assembly definition requires name.");
+                }
                 Assemblies.Add(new PackageAssembly(asm.Parameter, asm, fileList));
             }
 
@@ -319,11 +322,13 @@ namespace CoApp.Autopackage {
                 }
             }
 
+            AutopackageMain._easyPackageManager.SetAllFeedsStale().Wait();
+
             foreach (var pkgName in Source.RequiresRules.SelectMany(each => each["package"].Values)) {
                 // for now, lets just see if we can do a package match, and grab just that packages
                 // in the future, we should figure out how to make better decisions for this.
                 try {
-                    var packages = AutopackageMain._easyPackageManager.GetPackages(pkgName, null, null, null, null, null, null, null, false, null, false).Result.ToArray();
+                    var packages = AutopackageMain._easyPackageManager.GetPackages(pkgName, null, null, null, null, null, null, null, false, null, false).Result.OrderByDescending( each => each.Version).ToArray();
 
                     if( packages.IsNullOrEmpty()) {
                         AutopackageMessages.Invoke.Error( MessageCode.FailedToFindRequiredPackage, null, "Failed to find package '{0}'.", pkgName);

@@ -19,6 +19,7 @@
             <DockPanel Name="dock" >
         <Menu IsMainMenu="True" DockPanel.Dock="Top">
     <MenuItem Header="_File" />
+    <MenuItem Header="_Clear" Click="MenuItem_Click" />
     <MenuItem Header="_View" />
     <MenuItem Header="_Window" />
     <MenuItem Header="_Help" />

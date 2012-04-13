@@ -58,6 +58,7 @@ namespace CoApp.Autopackage {
         ManifestReferenceNotFound,
         AssemblyVersionDoesNotMatch,
         AssembliesMustBeSigned,
+        AssemblyHasNoName,
 
         // warnings
         WarningUnknown = 500,
@@ -269,7 +270,9 @@ namespace CoApp.Autopackage {
                     using (var popd = new PushDirectory(Path.GetDirectoryName(file.GetFullPath()))) {
                         Binary.UnloadAndResetAll();
 
-                        PackageSource = new PackageSource();
+                        _easyPackageManager.AddSessionFeed(Path.GetDirectoryName(file.GetFullPath())).Wait();
+
+                        PackageSource = new PackageSource(this);
                         foreach( var k in macrovals.Keys) {
                             PackageSource.MacroValues.Add(k, macrovals[k]);
                         }
@@ -389,9 +392,9 @@ namespace CoApp.Autopackage {
 
         private void CreatePackageFile() {
             var msiFile = Path.Combine(Environment.CurrentDirectory, "{0}-{1}-{2}.msi".format(PackageModel.Name, (string)PackageModel.Version, PackageModel.Architecture.ToString()));
-            PackageSource.MacroValues.Add("outputfilename", Path.GetFileName(msiFile));
-            PackageSource.MacroValues.Add("name", Path.GetFileNameWithoutExtension(msiFile));
-            PackageSource.MacroValues.Add("canonicalname", Path.GetFileNameWithoutExtension(PackageModel.CanonicalName));
+            PackageSource.MacroValues.AddOrSet("outputfilename", Path.GetFileName(msiFile));
+            PackageSource.MacroValues.AddOrSet("name", Path.GetFileNameWithoutExtension(msiFile));
+            PackageSource.MacroValues.AddOrSet("canonicalname", Path.GetFileNameWithoutExtension(PackageModel.CanonicalName));
 
             var wixDocument = new WixDocument(PackageSource, PackageModel, PackageFeed);
             wixDocument.FillInTemplate();
@@ -493,6 +496,17 @@ namespace CoApp.Autopackage {
             Console.ReadLine();
 
             return 1;
+        }
+    }
+
+       public static class DictionaryExtension {
+        public static TValue AddOrSet<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value) where TValue : class {
+            if( dictionary.ContainsKey(key) ) {
+                dictionary[key] = value;
+            } else {
+                dictionary.Add(key, value);
+            }
+            return value;
         }
     }
 }

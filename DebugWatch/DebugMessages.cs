@@ -33,18 +33,14 @@ namespace CoApp.DebugWatch {
 
         private void MonitorOnOnOutputDebugString(OutputDebugStringEventArgs args) {
             // poor mans filtering here.
-            if( args.Process.ProcessName.IndexOf("coapp",StringComparison.CurrentCultureIgnoreCase) > -1 ) {
-                
-                if(args.Message.IndexOf("berevity", StringComparison.CurrentCultureIgnoreCase) > -1 ) {
-                    // skip wrapped messages
-                    return;
-                }
+            if (args.Message.IndexOf("berevity", StringComparison.CurrentCultureIgnoreCase) > -1) {
+                // skip wrapped messages
+                return;
+            }
 
-
-
+            if (new [] {"coapp", "ptk", "autopackage", "tmp"}.Any(s => args.Process.ProcessName.IndexOf(s, StringComparison.CurrentCultureIgnoreCase) > -1)) {
                 var msg = new Message { Process = "{0}({1})".format(args.Process.ProcessName, args.Process.Id), Text = args.Message.UrlDecode(), FromProcStart = args.SinceProcessStarted.AsDebugOffsetString(), FromFirstEvent = args.SinceFirstEvent.AsDebugOffsetString() };
                 Dispatch(() => Add(msg));
-                
             }
         }
 

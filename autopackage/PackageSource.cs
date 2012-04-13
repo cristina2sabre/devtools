@@ -45,6 +45,12 @@ namespace CoApp.Autopackage {
         internal IEnumerable<Rule> SigningRules;
         internal IEnumerable<Rule> FileRules;
 
+        private AutopackageMain _mainInstance;
+
+        public PackageSource(AutopackageMain mainInstance) {
+            _mainInstance = mainInstance;
+        }
+
         internal void FindCertificate() {
 
             if (string.IsNullOrEmpty(SigningCertPath)) {
@@ -95,7 +101,7 @@ namespace CoApp.Autopackage {
 
         internal string GetMacroValue(string valuename) {
             if( valuename == "DEFAULTLAMBDAVALUE") {
-                return "${each.Path}";
+                return "${packagedir}\\${each.Path}";
             }
 
             string defaultValue = null;
@@ -107,18 +113,30 @@ namespace CoApp.Autopackage {
             }
 
             var parts = valuename.Split('.');
-            if( parts.Length == 3) {
-                var result = AllRules.GetRulesByName(parts[0]).GetRulesByParameter(parts[1]).GetPropertyValue(parts[2]);
-                if( result != null ) {
-                    return result;
-                }
-            }
+            if (parts.Length > 0) {
 
-            if( parts.Length == 2) {
-                var result = AllRules.GetRulesByName(parts[0]).GetPropertyValue(parts[1]);
-                if( result != null ) {
-                    return result;
+                if( parts.Length == 3) {
+                    var result = AllRules.GetRulesByName(parts[0]).GetRulesByParameter(parts[1]).GetPropertyValue(parts[2]);
+                    if( result != null ) {
+                        return result;
+                    }
                 }
+
+                if( parts.Length == 2) {
+                    var result = AllRules.GetRulesByName(parts[0]).GetPropertyValue(parts[1]);
+                    if( result != null ) {
+                        return result;
+                    }
+                }
+
+                // still not found?
+                if( parts[0].Equals("package", StringComparison.InvariantCultureIgnoreCase) ) {
+                    var result = this.SimpleEval(valuename.Substring(8));
+                    if (result != null && !string.IsNullOrEmpty(result.ToString())) {
+                        return result.ToString();
+                    }
+                }
+
             }
 
             return DefineRules.GetPropertyValue(valuename) ?? (MacroValues.ContainsKey(valuename.ToLower()) ? MacroValues[valuename.ToLower()] : Environment.GetEnvironmentVariable(valuename)) ?? defaultValue;
@@ -129,6 +147,11 @@ namespace CoApp.Autopackage {
             var fileRule = FileRules.FirstOrDefault(each => each.Parameter == collectionname);
 
             if( fileRule == null) {
+                var collection = GetMacroValue(collectionname);
+                if( collection != null ) {
+                    return collection.Split(new[] {','}, StringSplitOptions.RemoveEmptyEntries).Select(each => each.Trim());
+                }
+
                 AutopackageMessages.Invoke.Error(MessageCode.UnknownFileList, null, "Reference to unknown file list '{0}'", collectionname);
             } else {
                 var list = FileList.GetFileList(collectionname, FileRules);

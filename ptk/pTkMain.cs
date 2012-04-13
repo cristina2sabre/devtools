@@ -53,6 +53,9 @@ pTK [options] action [buildconfiguration...]
     --<var>=<value>             sets an environment/macro variable for the 
                                 whole ptk run.
 
+    --skip-built                checks targets before running build and skips
+                                the build-command if the targets all exist.
+
     Actions:
         build                   builds the product
 
@@ -128,6 +131,7 @@ pTK [options] action [buildconfiguration...]
         /// Does the user want us to print more?
         /// </summary>
         private bool _verbose;
+        private bool _skipBuilt;
         private Dictionary<string, string> _originalEnvironment = GetEnvironment();
         /// <summary>
         /// Tell the user which tools we are using?
@@ -177,17 +181,18 @@ pTK [options] action [buildconfiguration...]
         }
 
         private void SetVCCompiler(string compilerName, string compilerBatchFile, string arch) {
+            if (_verbose) {
+                using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
 
-            using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
-                Console.Write("Setting VC Compiler: ");
+                    Console.Write("Setting VC Compiler: ");
+                }
+                using (new ConsoleColors(ConsoleColor.Green, ConsoleColor.Black)) {
+                    Console.Write(compilerName);
+                }
+                using (new ConsoleColors(ConsoleColor.Yellow, ConsoleColor.Black)) {
+                    Console.WriteLine(" for [{0}]", arch);
+                }
             }
-            using (new ConsoleColors(ConsoleColor.Green, ConsoleColor.Black)) {
-                Console.Write(compilerName);
-            }
-            using (new ConsoleColors(ConsoleColor.Yellow, ConsoleColor.Black)) {
-                Console.WriteLine(" for [{0}]", arch);
-            }
-
 
             if (string.IsNullOrEmpty(compilerBatchFile))
                 throw new CoAppException("Cannot locate Visual C++ vcvars batch file command. Please install {0} (and use --rescan-tools). ".format(compilerName));
@@ -215,16 +220,17 @@ pTK [options] action [buildconfiguration...]
 
 
         private void SetSDK(string sdkName, string sdkBatchFile, string arch) {
-            using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
-                Console.Write("Setting SDK: ");
+            if (_verbose) {
+                using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
+                    Console.Write("Setting SDK: ");
+                }
+                using (new ConsoleColors(ConsoleColor.Green, ConsoleColor.Black)) {
+                    Console.Write(sdkName);
+                }
+                using (new ConsoleColors(ConsoleColor.Yellow, ConsoleColor.Black)) {
+                    Console.WriteLine(" for [{0}]", arch);
+                }
             }
-            using (new ConsoleColors(ConsoleColor.Green, ConsoleColor.Black)) {
-                Console.Write(sdkName);
-            }
-            using (new ConsoleColors(ConsoleColor.Yellow, ConsoleColor.Black)) {
-                Console.WriteLine(" for [{0}]", arch);
-            }
-
             var targetCpu = Environment.GetEnvironmentVariable("TARGET_CPU");
 
             if (string.IsNullOrEmpty(targetCpu) || (targetCpu == "x64" && arch == "x86") || (targetCpu == "x86" && arch != "x86")) {
@@ -250,16 +256,18 @@ pTK [options] action [buildconfiguration...]
         /// </summary>
         /// <param name="arch">A string indicating the target platform</param>
         private void SetMingwCompiler( string arch) {
-            using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
-                Console.Write("Setting Compiler: ");
-            }
-            using (new ConsoleColors(ConsoleColor.Green, ConsoleColor.Black)) {
-                Console.Write("mingw");
-            }
-            using (new ConsoleColors(ConsoleColor.Yellow, ConsoleColor.Black)) {
-                Console.WriteLine(" for [{0}]", arch);
-            }
+            if (_verbose) {
 
+                using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
+                    Console.Write("Setting Compiler: ");
+                }
+                using (new ConsoleColors(ConsoleColor.Green, ConsoleColor.Black)) {
+                    Console.Write("mingw");
+                }
+                using (new ConsoleColors(ConsoleColor.Yellow, ConsoleColor.Black)) {
+                    Console.WriteLine(" for [{0}]", arch);
+                }
+            }
 
             var mingwProgramFinder = new ProgramFinder("", Directory.GetDirectories(@"c:\\", "M*").Aggregate(_searchPaths+@"%ProgramFiles(x86)%;%ProgramFiles%;%ProgramW6432%", (current, dir) => dir + ";" + current));
 
@@ -453,6 +461,11 @@ pTK [options] action [buildconfiguration...]
                         _verbose = true;
                         break;
 
+                    case "skip-built":
+                        _skipBuilt = true;
+                        _originalEnvironment.AddOrSet("skip-built", "true");
+                        break;
+
                     case "load":
                         // user specified a custom PropertySheet
                         buildinfo = argumentParameters.LastOrDefault().GetFullPath();
@@ -479,13 +492,21 @@ pTK [options] action [buildconfiguration...]
                         return Help();
 
                     default:
-                        _originalEnvironment.AddOrSet(arg, argumentParameters.LastOrDefault());
+                        var p = argumentParameters.LastOrDefault();
+                        if (string.IsNullOrEmpty(p)) {
+                            if( _originalEnvironment.ContainsKey(arg) ) {
+                                _originalEnvironment.Remove(arg);
+                            }
+                        } else{
+                            _originalEnvironment.AddOrSet(arg, p);
+                        }
                         break;
                 }
             }
 
             // _originalEnvironment.Add("COAPP", CoApp.Toolkit.Engine.PackageManagerSettings.CoAppRootDirectory);
             _originalEnvironment.AddOrSet("COAPP", "C:/programdata/");
+
 
 
             while (string.IsNullOrEmpty(buildinfo) || !File.Exists(buildinfo)) {
@@ -532,7 +553,7 @@ pTK [options] action [buildconfiguration...]
             _useHg = _useGit ? false : Directory.Exists(".hg".GetFullPath());
 
             // source control is mandatory! create a repository for this package
-            if (!(_useGit || _useHg)) {
+            if (!(_useGit || _useHg) && _verbose) {
                 Console.WriteLine("WARNING: Source should be checked out using git or hg-git.");
             }
 
@@ -581,13 +602,52 @@ pTK [options] action [buildconfiguration...]
             _setenvcmd6 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("setenv.cmd", excludeFilters: new[] { @"\Windows Azure SDK\**", "winddk**" }, includeFilters: new[] { "sdk**", "6**" }, rememberMissingFile: true, tagWithCosmeticVersion: "6");
 
             _wdksetenvcmd7600 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("setenv.bat", excludeFilters: new[] { @"\Windows Azure SDK\**"}, includeFilters: new[] { "winddk**"  }, rememberMissingFile: true, tagWithCosmeticVersion: "7600.16385.1");
+            
+            /// SDK Setenv (sdk2003): c:\program files (x86)\Microsoft SDK\SetEnv.bat
 
             _vcvarsallbat10 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("vcvarsall.bat", includeFilters: new[] { "vc**", "10.0**" }, rememberMissingFile: true, tagWithCosmeticVersion: "10.0");
             _vcvarsallbat9 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("vcvarsall.bat", includeFilters: new[] { "vc**", "9.0**" }, rememberMissingFile: true, tagWithCosmeticVersion: "9.0");
-            _vcvarsallbat8 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("vcvarsall.bat", includeFilters: new[] { "vc**", "8**" }, rememberMissingFile: true, tagWithCosmeticVersion: "8.0");
+            _vcvarsallbat8 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("vcvarsall.bat", includeFilters: new[] { "vc**", "8**" }, rememberMissingFile: true, tagWithCosmeticVersion: "8");
             _vcvarsallbat7 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("vcvarsall.bat", includeFilters: new[] { "vc**", "7.0**" }, rememberMissingFile: true, tagWithCosmeticVersion: "7.0");
             _vcvarsallbat71 = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("vcvarsall.bat", includeFilters: new[] { "vc**", "7.1**" }, rememberMissingFile: true, tagWithCosmeticVersion: "7.1");
             _vcvars32bat = ProgramFinder.ProgramFilesAndDotNetAndSdk.ScanForFile("vcvars32.bat", includeFilters: new[] { "vc98**" }, rememberMissingFile: true, tagWithCosmeticVersion: "6");
+
+            // _originalEnvironment.AddOrSet("COAPP", "C:/programdata/");
+            var sdks = new List<string>();
+            if (_setenvcmd71 != null) {
+                sdks.Add("sdk7.1");
+            }
+            if (_setenvcmd7 != null) {
+                sdks.Add("sdk7");
+            }
+            if (_setenvcmd6 != null) {
+                sdks.Add("sdk6");
+            }
+
+            _originalEnvironment.AddOrSet("installed_sdks", sdks.Aggregate((s, s1) => s + ", " + s1));
+
+            var compilers = new List<string>();
+
+            if( _vcvarsallbat10 != null ) {
+                compilers.Add("vc10");
+            }
+            if( _vcvarsallbat9 != null ) {
+                compilers.Add("vc9");
+            }
+            if( _vcvarsallbat8 != null ) {
+                compilers.Add("vc8");
+            }
+            if( _vcvarsallbat71 != null ) {
+                compilers.Add("vc7.1");
+            }
+            if( _vcvarsallbat7 != null ) {
+                compilers.Add("vc7");
+            }
+            if( _vcvars32bat != null ) {
+                compilers.Add("vc6");
+            }
+
+            _originalEnvironment.AddOrSet("installed_compilers", sdks.Aggregate((s, s1) => s + ", " + s1));
 
             if (_showTools) {
                 if (_useGit) {
@@ -625,6 +685,10 @@ pTK [options] action [buildconfiguration...]
                 DefineRules = _propertySheet.Rules.Where(each => each.Id == "define" && each.Name == "*").ToArray();
 
                 _propertySheet.GetMacroValue += (valueName) => {
+                    if (valueName == "DEFAULTLAMBDAVALUE") {
+                        return ".";
+                    }
+
                     string defaultValue = null;
                     if( valueName.Contains("??")) {
                         var parts = valueName.Split(new[] {'?'}, StringSplitOptions.RemoveEmptyEntries);
@@ -632,11 +696,24 @@ pTK [options] action [buildconfiguration...]
                         valueName = parts[0];
                     }
 
+                     var property = (from rule in DefineRules where rule.HasProperty(valueName) select rule[valueName]).FirstOrDefault();
+
+                     if (property != null && property.HasValues && property.Values.Count() > 1) {
+                         // it's a collection of values. 
+                         // let's take the collection and return it as a comma seperated string.
+                         return property.Values.Aggregate((s, s1) => s + ", " + s1);
+                     }
+
                     return (from rule in DefineRules where rule.HasProperty(valueName) select rule[valueName].Value).FirstOrDefault() ?? Environment.GetEnvironmentVariable(valueName) ?? defaultValue;
                 };
 
                 _propertySheet.GetCollection += (collectionName) => {
-                    return Enumerable.Empty<object>();
+                    var property = (from rule in DefineRules where rule.HasProperty(collectionName) select rule[collectionName]).FirstOrDefault();
+                    if( property != null && property.HasValues && property.Values.Count() > 1 ) {
+                        return property.Values;
+                    }
+                    var collection = _propertySheet.GetMacroValue(collectionName);
+                    return collection != null ? collection.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).Select(each => each.Trim()) : Enumerable.Empty<object>();
                 };
             }
             catch (EndUserParseException pspe) {
@@ -648,7 +725,7 @@ pTK [options] action [buildconfiguration...]
                 return Fail("Error parsing .buildinfo file");
             }
             
-            var builds = from rule in _propertySheet.Rules where rule.Name != "*" && (!rule.HasProperty("default") || rule["default"].Value.IsTrue()) select rule;
+            var builds = from rule in _propertySheet.Rules where rule.Name != "*" && (rule.HasProperty("default") && rule["default"].Value.IsTrue()) select rule;
             var command = string.Empty;
 
            
@@ -851,7 +928,6 @@ REM ===================================================================
             var compilerProperty = build["compiler"];
 
             var compiler = compilerProperty != null ? compilerProperty.Value : "sdk7.1";
-
             var sdkProperty = build["sdk"];
             var sdk = sdkProperty != null ? sdkProperty.Value : "sdk7.1";
 
@@ -863,6 +939,10 @@ REM ===================================================================
             }
 
             SwitchCompiler(compiler,platform);
+
+            Environment.SetEnvironmentVariable("current_compiler", compiler);
+            Environment.SetEnvironmentVariable("current_sdk", sdk);
+            Environment.SetEnvironmentVariable("current_platform", platform);
         }
 
 
@@ -1149,17 +1229,31 @@ REM ===================================================================
 
                 SetCompilerSdkAndPlatform(build);
 
-                // read the build command from PropertySheet
-                var cmd = build["build-command"];
-
-                // tell the user which build rule we are processing right now
-                using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
-                    Console.WriteLine("Building Configuration [{0}]", build.Name);
+                var generate = build["generate"];
+                if(generate !=null &&  generate.HasValues ) {
+                    var files = build["generate"].Labels;
+                    if (!files.IsNullOrEmpty()) {
+                        foreach (var file in files) {
+                            File.WriteAllText(file,generate[file].Value);
+                        }
+                    }
                 }
 
-                // run this build command
-                if (cmd != null && !string.IsNullOrEmpty(cmd.Value)) {
-                    Exec(cmd.Value);
+                if( !(_skipBuilt && CheckTargets(build, false)) )  {
+                    // read the build command from PropertySheet
+                    var cmd = build["build-command"];
+
+                    // tell the user which build rule we are processing right now
+                    if (_verbose || (cmd != null && !string.IsNullOrEmpty(cmd.Value))) {
+                        using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
+                            Console.WriteLine("Building Configuration [{0}]", build.Name);
+                        }
+                    }
+
+                    // run this build command
+                    if (cmd != null && !string.IsNullOrEmpty(cmd.Value)) {
+                        Exec(cmd.Value);
+                    }
                 }
 
                 // check to see that the right things got built
@@ -1169,7 +1263,7 @@ REM ===================================================================
             }
         }
 
-        private void CheckTargets(Rule build) {
+        private bool CheckTargets(Rule build, bool haltOnFail = true ) {
             // we need the environment set correctly here.
             var savedVariables = _originalEnvironment;
             _originalEnvironment = new Dictionary<string, string>(savedVariables);
@@ -1184,21 +1278,29 @@ REM ===================================================================
 
             ResetEnvironment();
 
-            var kids = LocalChildBuilds(build);
-            foreach (var childBuild in LocalChildBuilds(build)) {
-                CheckTargets(childBuild);
+            // var kids = LocalChildBuilds(build);
+            var failed = LocalChildBuilds(build).Aggregate(false, (current, childBuild) => current || (!CheckTargets(childBuild, haltOnFail)));
+
+            // if there are no targets, then you can't skip them if they aren't there.
+            if (build["targets"] == null && !haltOnFail ) {
+                return false;
             }
 
             if (build["targets"] != null) {
                 foreach (var targ in build["targets"].Values.Where(targ => !File.Exists(targ))) {
-                    throw new ConsoleException("Target [{0}] was not found.", targ);
+                    failed = true;
+                    if (haltOnFail) {
+                        throw new ConsoleException("Target [{0}] was not found.", targ);
+                    }
+                }
+
+                using (new ConsoleColors(ConsoleColor.Gray, ConsoleColor.Black)) {
+                    Console.WriteLine("Targets Verified.");
                 }
             }
-
-            using (new ConsoleColors(ConsoleColor.Gray, ConsoleColor.Black)) {
-                Console.WriteLine("Targets Verified.");
-            }
+            
             _originalEnvironment = savedVariables;
+            return !failed;
         }
 
         /// <summary>
@@ -1319,34 +1421,6 @@ REM ===================================================================
         private IEnumerable<string> Hg(string cmdLine) {
             _hgexe.Exec(cmdLine);
             return from line in _hgexe.StandardOut.Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries) where !line.ToLower().Contains("copkg") select line;
-        }
-
-        private void CancellationRequested(string obj) {
-            Console.WriteLine("Cancellation Requested.");
-        }
-
-        private void MessageArgumentError(string arg1, string arg2, string arg3) {
-            throw new ConsoleException("Error from service: {0}", arg3);
-        }
-
-        private void OperationRequiresPermission(string policyName) {
-            Console.WriteLine("Operation requires permission Policy:{0}", policyName);
-        }
-
-        private void NoPackagesFound() {
-            Console.WriteLine("Did not find any packages.");
-        }
-
-        private void UnexpectedFailure(Exception obj) {
-            throw new ConsoleException("SERVER EXCEPTION: {0}\r\n{1}", obj.Message, obj.StackTrace);
-        }
-
-        private void UnknownPackage(string canonicalName) {
-            Console.WriteLine("Unknown Package {0}", canonicalName);
-        }
-
-        private void BlockedPackage(string canonicalName) {
-            Console.WriteLine("Package {0} is blocked", canonicalName);
         }
 
         #region fail/help/logo

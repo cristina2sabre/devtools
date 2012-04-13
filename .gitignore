@@ -10,3 +10,4 @@ _Resharper*
 coapp-tools-personal.sln
 *.ReSharper
 ipch
+*.msi

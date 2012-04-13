@@ -126,6 +126,10 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
                         // the element at the front is the 'this' value
                         // just trim off whatever is at the front up to and including the first dot.
                         try {
+                            if( innerMacro.Equals("each", StringComparison.CurrentCultureIgnoreCase) ) {
+                                value = value.Replace(outerMacro, eachItem.ToString());
+                                keepGoing = true;
+                            } else 
                             if (innerMacro.Contains(".")) {
                                 innerMacro = innerMacro.Substring(innerMacro.IndexOf('.') + 1).Trim();
                                 var r = eachItem.SimpleEval(innerMacro).ToString();

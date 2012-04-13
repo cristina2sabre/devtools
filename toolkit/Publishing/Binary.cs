@@ -793,6 +793,8 @@ namespace CoApp.Developer.Toolkit.Publishing {
                     _productName = _productName ?? TryGetVersionString(versionStringTable, "ProductName");
                    // _assemblyVersion = _assemblyVersion == 0L ? (FourPartVersion)TryGetVersionString(versionStringTable, "Assembly Version") : _assemblyVersion;
                     _fileVersion = _fileVersion == 0L ? (FourPartVersion)TryGetVersionString(versionStringTable, "FileVersion") : _fileVersion;
+                    //Console.WriteLine("VER: {0}", _fileVersion);
+                    
                     _internalName = _internalName ?? TryGetVersionString(versionStringTable, "InternalName");
                     _originalFilename = _originalFilename ?? TryGetVersionString(versionStringTable, "OriginalFilename");
                     _legalCopyright = _legalCopyright ?? TryGetVersionString(versionStringTable, "LegalCopyright");
@@ -1142,11 +1144,13 @@ namespace CoApp.Developer.Toolkit.Publishing {
         private string _fileDescription; //AssemblyTitle
 
         private void WaitForResourceAndManagedLoaders() {
-            if( _loadingResourceData != null ) {
+            if( _loadingResourceData == null ) {
                 LoadResourceData();
             } 
+
             if(IsManaged && _loadingManagedData == null) {
-                LoadResourceData();   
+                //LoadResourceData();
+                LoadManagedData();
             }
             
             if (_loadingResourceData != null && !_loadingResourceData.IsCompleted) {

@@ -8,6 +8,7 @@
 }
 
 release { 
+    default : true;
     // builds the binaries in "Release" mode but does not sign them.
     set : cfg = "Release";
     
@@ -33,6 +34,17 @@ package {
         autopackage coapp.devtools.autopkg  || goto failed
         erase /Q *.wixpdb
         echo Done Packaging!
+    ";
+}
+
+upload {
+    default: false;
+    uses : install;
+    build-command: @"
+    for /F %%G in ('dir /s /b /o-n  coapp.devtools*.msi') do ( 
+        curl -T %%G http://coapp.org/upload/
+        goto :eof
+    )
     ";
 }
 

@@ -96,7 +96,7 @@ namespace CoApp.Bootstrapper {
         /// This is the version of coapp that must be installed for the bootstrapper to continue.
         /// This should really only be updated when there is breaking changes in the client library
         /// </summary>
-        public const string MIN_COAPP_VERSION = "1.2.0.114";
+        public const string MIN_COAPP_VERSION = "1.2.0.141";
 
 
         [DllImport("user32.dll")]
@@ -670,7 +670,7 @@ namespace CoApp.Bootstrapper {
                         NativeMethods.MsiSetExternalUI(uihandler, 0x400, IntPtr.Zero);
 
                         try {
-                            var CoAppCacheFolder = Path.Combine(CoAppRootFolder.Value, ".cache");
+                            var CoAppCacheFolder = Path.Combine(CoAppRootFolder.Value, ".cache", "packages");
                             Directory.CreateDirectory(CoAppCacheFolder);
 
                             var cachedPath = Path.Combine(CoAppCacheFolder, MsiCanonicalName + ".msi");
