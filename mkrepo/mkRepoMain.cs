@@ -1,6 +1,8 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack . All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
@@ -15,20 +17,19 @@ namespace CoApp.mkRepo {
     using System.Linq;
     using System.Resources;
     using System.ServiceModel.Syndication;
-    using System.Threading;
     using System.Xml;
+    using Packaging.Client;
+    using Packaging.Common.Model.Atom;
     using Properties;
+    using Toolkit.Collections;
     using Toolkit.Console;
-    using Toolkit.Engine;
-    using Toolkit.Engine.Client;
-    using Toolkit.Engine.Model.Atom;
     using Toolkit.Exceptions;
     using Toolkit.Extensions;
     using Toolkit.Logging;
-    using Toolkit.Network;
+    using Toolkit.Tasks;
 
     public class mkRepoMain : AsyncConsoleProgram {
-        private bool _verbose = false;
+        private bool _verbose;
         private string _output = "feed.atom.xml";
         private string _input;
         private Uri _baseUrl;
@@ -37,37 +38,26 @@ namespace CoApp.mkRepo {
 
         internal AtomFeed Feed;
 
-        private PackageManagerMessages _messages;
-        private readonly PackageManager _pm = PackageManager.Instance;
+        private readonly PackageManager _packageManager = new PackageManager();
 
         private static int Main(string[] args) {
             return new mkRepoMain().Startup(args);
         }
 
         protected override ResourceManager Res {
-            get { return Resources.ResourceManager; }
+            get {
+                return Resources.ResourceManager;
+            }
         }
 
         protected override int Main(IEnumerable<string> args) {
-            _messages = new PackageManagerMessages {
-                UnexpectedFailure = UnexpectedFailure,
-                NoPackagesFound = NoPackagesFound,
-                PermissionRequired = OperationRequiresPermission,
-                Error = MessageArgumentError,
-                RequireRemoteFile =
-                    (canonicalName, remoteLocations, localFolder, force) =>
-                        Downloader.GetRemoteFile(canonicalName, remoteLocations, localFolder, force, new RemoteFileMessages {
-                            Progress = (itemUri, percent) => { "Downloading {0}".format(itemUri.AbsoluteUri).PrintProgressBar(percent); },
-                        }, _messages),
-                OperationCanceled = CancellationRequested,
-                PackageSatisfiedBy = (original, satisfiedBy) => { original.SatisfiedBy = satisfiedBy; },
-                PackageBlocked = BlockedPackage,
-                UnknownPackage = UnknownPackage,
-            };
+            CurrentTask.Events += new DownloadProgress((remoteLocation, location, progress) => {
+                "Downloading {0}".format(remoteLocation.UrlDecode()).PrintProgressBar(progress);
+            });
 
-            Verbose("# Connecting to Service...");
-            _pm.ConnectAndWait("mkRepo tool", null, 5000);
-            Verbose("# Connected to Service...");
+            CurrentTask.Events += new DownloadCompleted((remoteLocation, locallocation) => {
+                Console.WriteLine();
+            });
 
             try {
                 #region command line parsing
@@ -111,11 +101,11 @@ namespace CoApp.mkRepo {
 
                         case "feed-location":
                             try {
-                                _feedLocation = new Uri(last);    
+                                _feedLocation = new Uri(last);
                             } catch {
                                 throw new ConsoleException("Feed Location '{0}' is not a valid URI ", last);
                             }
-                            
+
                             break;
 
                         case "base-url":
@@ -131,6 +121,7 @@ namespace CoApp.mkRepo {
                     }
                 }
                 Logo();
+
                 #endregion
 
                 if (parameters.Count() < 1) {
@@ -139,8 +130,8 @@ namespace CoApp.mkRepo {
 
                 _packages = parameters.Skip(1);
 
-                switch( parameters.FirstOrDefault() ) {
-                    case "create" :
+                switch (parameters.FirstOrDefault()) {
+                    case "create":
                         Logger.Message("Creating Feed ");
                         Create();
                         break;
@@ -159,64 +150,66 @@ namespace CoApp.mkRepo {
             Feed = new AtomFeed();
             AtomFeed originalFeed = null;
 
-            if( !string.IsNullOrEmpty(_input) ) {
+            if (!string.IsNullOrEmpty(_input)) {
                 Logger.Message("Loading existing feed.");
-                if( _input.IsWebUrl()) {
+                if (_input.IsWebUri()) {
                     var inputFilename = "feed.atom.xml".GenerateTemporaryFilename();
 
-                    RemoteFile.GetRemoteFile(_input, inputFilename).Get(new RemoteFileMessages() {
-                        Completed = (uri) => { },
-                        Failed = (uri) => { inputFilename.TryHardToDelete(); },
-                        Progress = (uri, progress) => { }
-                    }).Wait();
+                    var rf = new RemoteFile(_input, inputFilename, (uri) => {
+                    },
+                        (uri) => {
+                            inputFilename.TryHardToDelete();
+                        },
+                        (uri, progress) => {
+                            "Downloading {0}".format(uri).PrintProgressBar(progress);
+                        });
+                    rf.Get();
 
-                    if( !File.Exists(inputFilename) ) {
+                    if (!File.Exists(inputFilename)) {
                         throw new ConsoleException("Failed to get input feed from '{0}' ", _input);
                     }
                     originalFeed = AtomFeed.LoadFile(inputFilename);
-                }
-                else {
+                } else {
                     originalFeed = AtomFeed.LoadFile(_input);
                 }
             }
 
-            if( originalFeed != null ) {
+            if (originalFeed != null) {
                 Feed.Add(originalFeed.Items.Where(each => each is AtomItem).Select(each => each as AtomItem));
             }
 
             Logger.Message("Selecting local packages");
             var files = _packages.FindFilesSmarter();
 
-            _pm.GetPackages(files, dependencies:false, latest:false, messages:_messages).ContinueWith((antecedent) => {
+            _packageManager.QueryPackages(files, dependencies: false, latest: false).ContinueWith((antecedent) => {
                 var packages = antecedent.Result;
 
                 foreach (var pkg in packages) {
-                    _pm.GetPackageDetails(pkg.CanonicalName, _messages).Wait();
+                    _packageManager.GetPackageDetails(pkg.CanonicalName).Wait();
 
                     if (!string.IsNullOrEmpty(pkg.PackageItemText)) {
                         var item = SyndicationItem.Load<AtomItem>(XmlReader.Create(new StringReader(pkg.PackageItemText)));
-                        
+
                         var feedItem = Feed.Add(item);
-                        
+
                         // first, make sure that the feeds contains the intended feed location.
-                        if( feedItem.Model.Feeds == null ) {
-                            feedItem.Model.Feeds  = new List<Uri>();
+                        if (feedItem.Model.Feeds == null) {
+                            feedItem.Model.Feeds = new XList<Uri>();
                         }
 
-                        if( !feedItem.Model.Feeds.Contains(_feedLocation) ) {
+                        if (!feedItem.Model.Feeds.Contains(_feedLocation)) {
                             feedItem.Model.Feeds.Insert(0, _feedLocation);
                         }
 
                         var location = new Uri(_baseUrl, Path.GetFileName(pkg.LocalPackagePath));
 
-                        if (feedItem.Model.Locations== null) {
-                            feedItem.Model.Locations = new List<Uri>();
+                        if (feedItem.Model.Locations == null) {
+                            feedItem.Model.Locations = new XList<Uri>();
                         }
 
                         if (!feedItem.Model.Locations.Contains(location)) {
                             feedItem.Model.Locations.Insert(0, location);
                         }
-
                     } else {
                         throw new ConsoleException("Missing ATOM data for '{0}'", pkg.Name);
                     }
@@ -229,36 +222,8 @@ namespace CoApp.mkRepo {
             // PackageFeed.Add(PackageModel);
         }
 
-        private void UnknownPackage(string canonicalName) {
-            Console.WriteLine("Unknown Package {0}", canonicalName);
-        }
-
-        private void BlockedPackage(string canonicalName) {
-            Console.WriteLine("Package {0} is blocked", canonicalName);
-        }
-
-        private void CancellationRequested(string obj) {
-            Console.WriteLine("Cancellation Requested.");
-        }
-
-        private void MessageArgumentError(string arg1, string arg2, string arg3) {
-            Console.WriteLine("Message Argument Error {0}, {1}, {2}.", arg1, arg2, arg3);
-        }
-
-        private void OperationRequiresPermission(string policyName) {
-            Console.WriteLine("Operation requires permission Policy:{0}", policyName);
-        }
-
-        private void NoPackagesFound() {
-            Console.WriteLine("Did not find any packages.");
-        }
-
-        private void UnexpectedFailure(Exception obj) {
-            throw new ConsoleException("SERVER EXCEPTION: {0}\r\n{1}", obj.Message, obj.StackTrace);
-        }
-
         private void Verbose(string text, params object[] objs) {
-            if (true == _verbose) {
+            if (_verbose) {
                 Console.WriteLine(text.format(objs));
             }
         }

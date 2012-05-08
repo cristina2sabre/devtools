@@ -1,12 +1,15 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack . All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
 //     You may not use the software except in compliance with the License. 
 // </license>
 //-----------------------------------------------------------------------
+
 
 namespace CoApp.RepositoryService {
     using System;
@@ -15,17 +18,13 @@ namespace CoApp.RepositoryService {
     using System.Resources;
     using System.Threading;
     using Properties;
+    using Toolkit.Collections;
     using Toolkit.Configuration;
     using Toolkit.Console;
-    using Toolkit.Engine;
-    using Toolkit.Engine.Client;
-    using Toolkit.Exceptions;
     using Toolkit.Extensions;
     using Toolkit.Logging;
-    using Toolkit.Network;
 
     public class RepositoryServiceMain  : AsyncConsoleProgram {
-        internal static PackageManagerMessages _messages;
         private static bool _verbose = false;
         internal static readonly RegistryView Settings = RegistryView.CoAppUser["RepositoryService"];
 
@@ -38,22 +37,6 @@ namespace CoApp.RepositoryService {
         }
 
         protected override int Main(IEnumerable<string> args) {
-            _messages = new PackageManagerMessages {
-                UnexpectedFailure = UnexpectedFailure,
-                NoPackagesFound = NoPackagesFound,
-                PermissionRequired = OperationRequiresPermission,
-                Error = MessageArgumentError,
-                RequireRemoteFile =
-                    (canonicalName, remoteLocations, localFolder, force) =>
-                        Downloader.GetRemoteFile(canonicalName, remoteLocations, localFolder, force, new RemoteFileMessages {
-                            Progress = (itemUri, percent) => { "Downloading {0}".format(itemUri.AbsoluteUri).PrintProgressBar(percent); },
-                        }, _messages),
-                OperationCanceled = CancellationRequested,
-                PackageSatisfiedBy = (original, satisfiedBy) => { original.SatisfiedBy = satisfiedBy; },
-                PackageBlocked = BlockedPackage,
-                UnknownPackage = UnknownPackage,
-            };
-            
             var hosts = new string[] { "*" };
             var ports = new int[] { 80 };
             var commitMessage = "trigger";
@@ -72,7 +55,7 @@ namespace CoApp.RepositoryService {
 
             var options = args.Where(each => each.StartsWith("--")).Switches();
             var parameters = args.Where(each => !each.StartsWith("--")).Parameters();
-            var aliases = new Dictionary<string, string>();
+            var aliases = new XDictionary<string, string>();
 
             foreach (var arg in options.Keys) {
                 var argumentParameters = options[arg];
@@ -192,41 +175,13 @@ namespace CoApp.RepositoryService {
                     
                 }
 
-                listener.Stop();
+                // listener.Stop();
             } catch(Exception e) {
                 Listener.HandleException(e);
                 CancellationTokenSource.Cancel();
             }
 
             return 0;
-        }
-
-        private void UnknownPackage(string canonicalName) {
-            Console.WriteLine("Unknown Package {0}", canonicalName);
-        }
-
-        private void BlockedPackage(string canonicalName) {
-            Console.WriteLine("Package {0} is blocked", canonicalName);
-        }
-
-        private void CancellationRequested(string obj) {
-            Console.WriteLine("Cancellation Requested.");
-        }
-
-        private void MessageArgumentError(string arg1, string arg2, string arg3) {
-            Console.WriteLine("Message Argument Error {0}, {1}, {2}.", arg1, arg2, arg3);
-        }
-
-        private void OperationRequiresPermission(string policyName) {
-            Console.WriteLine("Operation requires permission Policy:{0}", policyName);
-        }
-
-        private void NoPackagesFound() {
-            Console.WriteLine("Did not find any packages.");
-        }
-
-        private void UnexpectedFailure(Exception obj) {
-            throw new ConsoleException("SERVER EXCEPTION: {0}\r\n{1}", obj.Message, obj.StackTrace);
         }
 
         private void Verbose(string text, params object[] objs) {

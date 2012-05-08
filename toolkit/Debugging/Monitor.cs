@@ -1,121 +1,29 @@
-﻿namespace CoApp.Developer.Toolkit.Debugging {
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
+
+namespace CoApp.Developer.Toolkit.Debugging {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Runtime.InteropServices;
     using System.Security.AccessControl;
     using System.Security.Principal;
     using System.Threading;
     using System.Threading.Tasks;
-    using CoApp.Toolkit.Extensions;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
     ///   Delegate used when firing OnOutputDebug event
     /// </summary>
     public delegate void OutputDebugStringHandler(OutputDebugStringEventArgs args);
-
-    public class FauxProcess {
-        private FauxProcess() {
-        }
-
-        public int Id { get; internal set; }
-        public string ProcessName { get; private set; }
-        public DateTime StartTime { get; private set; }
-        public DateTime FirstMessageTime { get; private set; }
-
-        private static readonly Dictionary<int, FauxProcess> ProcessCache = new Dictionary<int, FauxProcess>();
-
-        internal static FauxProcess GetProcess(int pid, DateTime msgTime) {
-            lock (ProcessCache) {
-                FauxProcess result;
-
-                if (ProcessCache.ContainsKey(pid)) {
-                    result = ProcessCache[pid];
-                    if (result.FirstMessageTime == DateTime.MinValue) {
-                        result.FirstMessageTime = msgTime;
-                    }
-                    try {
-                        var checkProc = Process.GetProcessById(pid);
-                        if( checkProc.StartTime != result.StartTime ) {
-                            // new proc with same id.
-                            result = new FauxProcess {
-                                ProcessName = checkProc.ProcessName,
-                                StartTime = checkProc.StartTime,
-                                FirstMessageTime = msgTime,
-                                Id = pid
-                            };
-                            ProcessCache[pid] = result;
-                        }
-                    } catch {
-                        
-                    }
-                    return result;
-                }
-                try {
-                    
-                    var proc = Process.GetProcessById(pid);
-                    result = new FauxProcess {
-                        ProcessName = proc.ProcessName,
-                        StartTime = proc.StartTime,
-                        FirstMessageTime = msgTime,
-                        Id = pid
-                    };
-                }
-                catch {
-                    result = new FauxProcess {
-                        ProcessName = "<exited>",
-                        StartTime = msgTime,
-                        FirstMessageTime = msgTime,
-                        Id = pid
-                    };
-                }
-                ProcessCache.Add(pid, result);
-                return result;
-            }
-        }
-
-        public void ResetFirstMessageTime() {
-            FirstMessageTime = DateTime.MinValue;
-        }
-
-        public static void ResetAll() {
-            foreach( var v in ProcessCache.Values ) {
-                v.ResetFirstMessageTime();
-            }
-        }
-    }
-
-    public class OutputDebugStringEventArgs {
-        internal OutputDebugStringEventArgs(int processId, DateTime messageTime, string messageText) {
-            ProcessId = processId;
-            MessageTime = messageTime;
-            Message = messageText;
-            SinceFirstEvent = messageTime.Subtract(Process.FirstMessageTime);
-            SinceProcessStarted= messageTime.Subtract(Process.StartTime);
-        }
-
-        public int ProcessId { get; private set; }
-        public DateTime MessageTime { get; private set; }
-        public FauxProcess Process { get {
-            return FauxProcess.GetProcess(ProcessId, MessageTime);
-        } }
-        public TimeSpan SinceProcessStarted { get; private set; }
-        public TimeSpan SinceFirstEvent { get; private set; }
-        public string Message { get; private set; }
-      
-    }
-
-    public static class TimeSpanExtensions {
-        public static string AsDebugOffsetString(this TimeSpan timespan) {
-            return "{0}{1}{2}{3}{4}".format(
-                timespan.Days == 0 ? "    " : "{0:D3}d".format(timespan.Days),
-                timespan.Hours == 0 ? "   " : "{0:D2}:".format(timespan.Hours),
-                timespan.Minutes == 0 ? "   " : "{0:D2}:".format(timespan.Minutes),
-                timespan.Seconds == 0 ? " 0." : "{0:D2}.".format(timespan.Seconds),
-                "{0:D3}".format(timespan.Milliseconds));
-        }
-    }
 
     public class Monitor {
         public static event OutputDebugStringHandler OnOutputDebugString;

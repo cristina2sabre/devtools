@@ -28,6 +28,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     using System.Collections.Generic;
     using System.IO;
     using System.Text;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
@@ -36,7 +37,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     ///   http://msdn.microsoft.com/en-us/library/aa908808.aspx
     /// </summary>
     public class StringFileInfo : ResourceTableHeader {
-        private Dictionary<string, StringTable> _strings = new Dictionary<string, StringTable>();
+        private IDictionary<string, StringTable> _strings = new XDictionary<string, StringTable>();
 
         /// <summary>
         ///   A new string file-version resource.
@@ -56,7 +57,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         /// <summary>
         ///   Resource strings.
         /// </summary>
-        public Dictionary<string, StringTable> Strings {
+        public IDictionary<string, StringTable> Strings {
             get { return _strings; }
         }
 

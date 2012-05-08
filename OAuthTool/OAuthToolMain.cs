@@ -1,18 +1,29 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
+
 
 namespace OAuthTool {
+    using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Linq;
     using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Extensions;
-    using CoApp.Toolkit.Win32;
     using Microsoft.Win32;
     using Twitterizer;
 
     internal class OAuthToolMain {
-        private const string HELP = @"
+        private const string HELP =
+            @"
 Usage:
 -------
 
@@ -41,8 +52,7 @@ OAuthTool [options] <service>
         }
 
         private int main(string[] args) {
-
-            var options = new EasyDictionary<string,IEnumerable<string>>(args.Where(each => each.StartsWith("--")).Switches());
+            var options = new XDictionary<string, IEnumerable<string>>(args.Where(each => each.StartsWith("--")).Switches());
             var parameters = args.Parameters().ToArray();
 
             #region Parse Options
@@ -51,12 +61,12 @@ OAuthTool [options] <service>
                 var argumentParameters = options[arg];
 
                 switch (arg) {
-                    /* options  */
+                        /* options  */
 
                     case "verbose":
                         break;
 
-                    /* global switches */
+                        /* global switches */
                     case "load-config":
                         // all ready done, but don't get too picky.
                         break;
@@ -67,38 +77,37 @@ OAuthTool [options] <service>
 
                     case "help":
                         return Help();
-
                 }
             }
             Logo();
 
             #endregion
 
-            if( parameters.Length != 1 ) {
+            if (parameters.Length != 1) {
                 return Fail("Must have a single parameter for service name");
             }
 
-            switch( parameters.FirstOrDefault().ToLower() ) {
+            switch (parameters.FirstOrDefault().ToLower()) {
                 case "twitter":
                     var key = (options["key"] ?? Enumerable.Empty<string>()).LastOrDefault();
                     var secret = (options["secret"] ?? Enumerable.Empty<string>()).LastOrDefault();
                     var pin = (options["pin"] ?? Enumerable.Empty<string>()).LastOrDefault();
                     var reqToken = (options["token"] ?? Enumerable.Empty<string>()).LastOrDefault();
 
-                    if( key == null || secret == null) {
+                    if (key == null || secret == null) {
                         return Fail("Must specify --key= and --secret for twitter");
                     }
 
                     var requestToken = OAuthUtility.GetRequestToken(key, secret, "oob");
                     var auth = OAuthUtility.BuildAuthorizationUri(requestToken.Token);
 
-                    if( pin == null || reqToken == null) {
+                    if (pin == null || reqToken == null) {
                         Console.WriteLine("User must authenticate at {0}", auth.AbsoluteUri);
-                        Process.Start(new ProcessStartInfo() {UseShellExecute=false, FileName = GetDefaultBrowserPath(), Arguments = auth.AbsoluteUri });
+                        Process.Start(new ProcessStartInfo {UseShellExecute = false, FileName = GetDefaultBrowserPath(), Arguments = auth.AbsoluteUri});
                         // Kernel32.CreateProcessW(IntPtr.Zero, auth.AbsolutePath, )
                         Console.WriteLine(GetDefaultBrowserPath());
                         Console.WriteLine("Re-run with command line:");
-                        Console.WriteLine("\"{0}\" --key={1} --secret={2} --token={3} --pin=<pin>", "oauthtool", key, secret , requestToken.Token );
+                        Console.WriteLine("\"{0}\" --key={1} --secret={2} --token={3} --pin=<pin>", "oauthtool", key, secret, requestToken.Token);
                         return 0;
                     }
 
@@ -110,8 +119,8 @@ OAuthTool [options] <service>
                     Console.WriteLine("consumer-key={0}", key);
                     Console.WriteLine("consumer-secret={0}", secret);
                     Console.WriteLine("{0}-access-token={1}", token.ScreenName, token.Token);
-                    Console.WriteLine("{0}-access-secret={1}", token.ScreenName,token.TokenSecret);
-                    
+                    Console.WriteLine("{0}-access-secret={1}", token.ScreenName, token.TokenSecret);
+
                     break;
             }
 
@@ -121,7 +130,7 @@ OAuthTool [options] <service>
         private static string GetDefaultBrowserPath() {
             string key = @"http\shell\open\command";
             RegistryKey registryKey =
-            Registry.ClassesRoot.OpenSubKey(key, false);
+                Registry.ClassesRoot.OpenSubKey(key, false);
             return ((string)registryKey.GetValue(null, null)).Split('"')[1];
         }
 
@@ -129,21 +138,24 @@ OAuthTool [options] <service>
 
         public int Fail(string text, params object[] par) {
             Logo();
-            using (new ConsoleColors(ConsoleColor.Red, ConsoleColor.Black))
+            using (new ConsoleColors(ConsoleColor.Red, ConsoleColor.Black)) {
                 Console.WriteLine("Error:{0}", text.format(par));
+            }
             return 1;
         }
 
         private int Help() {
             Logo();
-            using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black))
-                HELP.Print();
+            using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
+                Console.WriteLine(HELP);
+            }
             return 0;
         }
 
         private void Logo() {
-            using (new ConsoleColors(ConsoleColor.Cyan, ConsoleColor.Black))
-                this.Assembly().Logo().Print();
+            using (new ConsoleColors(ConsoleColor.Cyan, ConsoleColor.Black)) {
+                Console.WriteLine(this.Assembly().Logo());
+            }
             this.Assembly().SetLogo("");
         }
 

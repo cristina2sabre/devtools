@@ -1,6 +1,8 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack. All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
@@ -8,19 +10,13 @@
 // </license>
 //-----------------------------------------------------------------------
 
-using System.IO;
 
-namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
+namespace CoApp.Developer.Toolkit.Scripting.Languages.PropertySheet {
+    using System.IO;
     using System.Collections.Generic;
+    using CoApp.Toolkit.Extensions;
     using Exceptions;
-    using Extensions;
     using Utility;
-
-    public class SourceLocation {
-        public int Row;
-        public int Column;
-        public string SourceFile;
-    }
 
     public class PropertySheetParser {
         private readonly string _propertySheetText;
@@ -68,7 +64,7 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
             string ruleClass = null;
             string ruleId = null;
 
-            NewRuleProperty property = null;
+            PropertyRule property = null;
 
             var sourceLocation = new SourceLocation {
                 Row=0,
@@ -174,8 +170,16 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
                                     document = File.ReadAllText(filename);
                                 }
 
+                                var includedSheet = new PropertySheet();
                                 // parse the contents of that file into the current property sheet.
-                                new PropertySheetParser(document, filename, _propertySheet).Parse();
+                                new PropertySheetParser(document, filename, includedSheet).Parse();
+
+                                foreach( var r in includedSheet.Rules) {
+                                    r.ParentPropertySheet = _propertySheet;
+                                }
+
+                                _propertySheet.ImportedSheets.Add(filename, includedSheet);
+
                                 state = ParseState.Global;
                                 continue;
                             default:

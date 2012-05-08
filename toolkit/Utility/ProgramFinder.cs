@@ -146,6 +146,26 @@ namespace CoApp.Toolkit.Utility {
         }
 
         /// <summary>
+        ///   returns a UInt64 of a standard version string. Returns 0 for parts that are not valid.
+        /// </summary>
+        /// <param name="version"> The version. </param>
+        /// <returns> </returns>
+        /// <remarks>
+        /// </remarks>
+        public static UInt64 VersionStringToUInt64(string version) {
+            if (String.IsNullOrEmpty(version)) {
+                return 0;
+            }
+            var vers = version.Split('.');
+            var major = vers.Length > 0 ? vers[0].ToInt32(0) : 0;
+            var minor = vers.Length > 1 ? vers[1].ToInt32(0) : 0;
+            var build = vers.Length > 2 ? vers[2].ToInt32(0) : 0;
+            var revision = vers.Length > 3 ? vers[3].ToInt32(0) : 0;
+
+            return (((UInt64)major) << 48) + (((UInt64)minor) << 32) + (((UInt64)build) << 16) + (UInt64)revision;
+        }
+
+        /// <summary>
         /// Finds a tool in the file system
         /// </summary>
         /// <param name="filename">The name of the tool</param>
@@ -175,7 +195,7 @@ namespace CoApp.Toolkit.Utility {
 
             Notify("[One moment.. Scanning for utility({0}/{1}/{2})]", filename, executableType.ToString(), tagWithCosmeticVersion ?? minimumVersion);
 
-            var ver = minimumVersion.VersionStringToUInt64();
+            var ver = VersionStringToUInt64(minimumVersion);
 
             var files = _commonSearchLocations.Union(_searchLocations).SelectMany(
                 directory => directory.DirectoryEnumerateFilesSmarter("**\\"+filename, SearchOption.TopDirectoryOnly))
@@ -193,13 +213,13 @@ namespace CoApp.Toolkit.Utility {
 
             if (includeFilters != null) {
                 files = includeFilters.Aggregate(files, (current, filter) => (from eachFile in current
-                                                                              where eachFile.IsWildcardMatch(filter)
+                                                                              where eachFile.NewIsWildcardMatch(filter)
                                                                               select eachFile));
             }
 
             if (excludeFilters != null) {
                 files = excludeFilters.Aggregate(files, (current, filter) => (from eachFile in current
-                    where !eachFile.IsWildcardMatch(filter)
+                                                                              where !eachFile.NewIsWildcardMatch(filter)
                                                                               select eachFile));
             }
 

@@ -1,19 +1,28 @@
+//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
 namespace CoApp.Autopackage {
     using System;
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.IO;
     using System.Linq;
-    using System.Reflection;
-    using System.Xml;
+    
     using System.Xml.Linq;
-    using System.Xml.Serialization;
+    using Developer.Toolkit.Scripting.Languages.PropertySheet;
+    using Packaging.Client;
+    using Packaging.Common.Model;
     using Toolkit.Configuration;
-    using Toolkit.Engine.Client;
-    using Toolkit.Engine.Model;
     using Toolkit.Extensions;
-    using Toolkit.Network;
-    using Toolkit.Scripting.Languages.PropertySheet;
+    using Toolkit.Tasks;
     using Toolkit.Text.Sgml;
 
     public static class Extensions {
@@ -110,7 +119,7 @@ namespace CoApp.Autopackage {
                 if(uri.IsFile) {
                     localFile = uri.AbsoluteUri.CanonicalizePath();
                     if( !File.Exists(localFile)) {
-                        AutopackageMessages.Invoke.Warning(MessageCode.BadLicenseLocation, null, "Unable to retrieve the license for {0} from {1}", value,
+                        Event<Warning>.Raise(MessageCode.BadLicenseLocation, null, "Unable to retrieve the license for {0} from {1}", value,
                             localFile);
                         return null;
                     }
@@ -119,7 +128,7 @@ namespace CoApp.Autopackage {
                     rf.Get();
 
                     if( !File.Exists(localFile)) {
-                        AutopackageMessages.Invoke.Warning(MessageCode.BadLicenseLocation, null, "Unable to retrieve the license for {0} from {1}", value,
+                        Event<Warning>.Raise(MessageCode.BadLicenseLocation, null, "Unable to retrieve the license for {0} from {1}", value,
                             uri.AbsolutePath);
                         return null;
                     }

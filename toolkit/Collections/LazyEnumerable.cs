@@ -8,10 +8,9 @@
 // </license>
 //-----------------------------------------------------------------------
 
-namespace CoApp.Toolkit.Collections {
+namespace CoApp.Developer.Toolkit.Collections {
     using System.Collections;
     using System.Collections.Generic;
-
 
     /// <summary>
     /// This IEnumerable Wrapper will cache the results incrementally on first use of the source collection

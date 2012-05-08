@@ -1,19 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
 
 namespace CoApp.Autopackage {
+    using System;
     using System.Drawing;
     using System.Drawing.Imaging;
     using System.IO;
+    using System.Linq;
+    using System.Reflection;
     using System.Threading.Tasks;
     using System.Xml.Linq;
     using Developer.Toolkit.Publishing;
+    using Packaging.Common.Model.Atom;
+    using Properties;
     using Toolkit.DynamicXml;
-    using Toolkit.Engine.Model.Atom;
     using Toolkit.Exceptions;
     using Toolkit.Extensions;
+    using Toolkit.Tasks;
 
     internal class WixDocument {
         private dynamic wix;
@@ -24,13 +36,17 @@ namespace CoApp.Autopackage {
 
         private dynamic TargetDir;
 
-        private dynamic VendorDir { get {
-            return FindOrCreateDirectory(TargetDir, Model.Vendor.MakeAttractiveFilename());
-        }}
+        private dynamic VendorDir {
+            get {
+                return FindOrCreateDirectory(TargetDir, Model.Vendor.MakeAttractiveFilename());
+            }
+        }
 
-        private dynamic ProductDir { get {
-            return FindOrCreateDirectory(VendorDir, Model.CanonicalName.MakeAttractiveFilename());
-        }}
+        private dynamic ProductDir {
+            get {
+                return FindOrCreateDirectory(VendorDir, Model.CanonicalName.PackageName.MakeAttractiveFilename());
+            }
+        }
 
         internal WixDocument(PackageSource source, AutopackageModel model, AtomFeed feed) {
             Source = source;
@@ -45,7 +61,6 @@ namespace CoApp.Autopackage {
             // we need to be in the directory where we're making the wxs file.
             // since we're playing with relative file paths in the wxs source.
             using (var popd = new PushDirectory(FilesystemExtensions.TempPath)) {
-
                 using (var reader = new StringReader(Model.WixTemplate)) {
                     wixXml = XDocument.Load(reader);
                 }
@@ -72,7 +87,7 @@ namespace CoApp.Autopackage {
         }
 
         public void SetBasicWixProperties() {
-            wix.Product.Attributes.Id = Model.ProductCode;
+            wix.Product.Attributes.Id = Model.CanonicalName.ToString().CreateGuid();
             wix.Product.Attributes.Manufacturer = Model.Vendor;
             wix.Product.Attributes.Name = Model.Name;
             wix.Product.Attributes.Version = Model.Version.ToString();
@@ -82,36 +97,45 @@ namespace CoApp.Autopackage {
 
         private void AddBootstrappersToWix() {
             // "CoappBootstrapNativeBin"
+            var foldersWeCareAbout = new string[] {
+                Path.GetDirectoryName(Assembly.GetEntryAssembly().Location.GetFullPath()),
+                Environment.CurrentDirectory,
+                Path.GetDirectoryName(Source.SourceFile)
+            };
 
             var coappBootstrapNativeBin = wix.Product["Id=native_bootstrap.exe"];
             if (coappBootstrapNativeBin != null) {
                 var bootstrapTempFile = "native-bootstrap.exe".GetFileInTempFolder();
 
-                using (var fs = System.IO.File.Create(bootstrapTempFile)) {
-                    fs.Write(Properties.Resources.coapp_native_bootstrap, 0, Properties.Resources.coapp_native_bootstrap.Length);
+                foreach( var folder in foldersWeCareAbout ) {
+                    var file = Path.Combine(folder, "native-bootstrap.exe");
+                    if (File.Exists(file)) {
+                        File.Copy(file, bootstrapTempFile, true);
+                        break;
+                    }
                 }
 
-                // resign the file
-                var peBinary = PeBinary.Load(bootstrapTempFile);
-                peBinary.StrongNameKeyCertificate = Source.Certificate;
-                peBinary.SigningCertificate = Source.Certificate;
-                peBinary.CompanyName = Model.Vendor;
+                if (!File.Exists(bootstrapTempFile)) {
+                    using (var fs = File.Create(bootstrapTempFile)) {
+                        fs.Write(Resources.coapp_native_bootstrap, 0, Resources.coapp_native_bootstrap.Length);
+                    }
+                }
 
-                peBinary.Comments = "Installer for " + Model.DisplayName;
-                peBinary.ProductName = "Installer for " + Model.DisplayName;
-                peBinary.AssemblyTitle = "Installer for " + Model.DisplayName;
-                peBinary.AssemblyDescription = "Installer for " + Model.DisplayName;
-
-                peBinary.LegalCopyright = Model.PackageDetails.CopyrightStatement;
-
-                peBinary.ProductVersion = Model.Version.ToString();
-                peBinary.FileVersion = Model.Version.ToString();
-
-                peBinary.FileVersion = Model.Version.ToString();
-                peBinary.ProductVersion = Model.Version.ToString();
-
-                peBinary.Save();
-
+                Binary.Load(bootstrapTempFile, BinaryLoadOptions.NoManaged).Continue(binary => {
+                    binary.SigningCertificate = Source.Certificate;
+                    binary.CompanyName = Model.Vendor;
+                    binary.Comments = "Installer for " + Model.DisplayName;
+                    binary.ProductName = "Installer for " + Model.DisplayName;
+                    binary.AssemblyTitle = "Installer for " + Model.DisplayName;
+                    binary.AssemblyDescription = "Installer for " + Model.DisplayName;
+                    binary.LegalCopyright = Model.PackageDetails.CopyrightStatement;
+                    binary.ProductVersion = Model.Version.ToString();
+                    binary.FileVersion = Model.Version.ToString();
+                    binary.FileVersion = Model.Version.ToString();
+                    binary.ProductVersion = Model.Version.ToString();
+                    return binary.Save();
+                }).Wait();
+                
                 coappBootstrapNativeBin.Attributes.SourceFile = bootstrapTempFile;
             }
 
@@ -119,57 +143,63 @@ namespace CoApp.Autopackage {
             if (coappBootstrapBin != null) {
                 var managedBootstrapTemporaryFile = "managed_bootstrap.exe".GetFileInTempFolder();
 
-                
-                using (var fs = System.IO.File.Create(managedBootstrapTemporaryFile)) {
-                    fs.Write(Properties.Resources.coapp_managed_bootstrap, 0, Properties.Resources.coapp_managed_bootstrap.Length);
+                foreach (var folder in foldersWeCareAbout) {
+                    var file = Path.Combine(folder, "managed-bootstrap.exe");
+                    if (File.Exists(file)) {
+                        File.Copy(file, managedBootstrapTemporaryFile, true);
+                        break;
+                    }
+                }
+
+                if (!File.Exists(managedBootstrapTemporaryFile)) {
+                    using (var fs = File.Create(managedBootstrapTemporaryFile)) {
+                        fs.Write(Resources.coapp_managed_bootstrap, 0, Resources.coapp_managed_bootstrap.Length);
+                    }
                 }
 
                 // resign the file
-                var peBinary = PeBinary.Load(managedBootstrapTemporaryFile);
-                peBinary.StrongNameKeyCertificate = Source.Certificate;
-                peBinary.SigningCertificate = Source.Certificate;
-                peBinary.CompanyName = Model.Vendor;
-
-                peBinary.Comments = "Installer for " + Model.DisplayName;
-                peBinary.ProductName = "Installer for " + Model.DisplayName;
-                peBinary.AssemblyTitle = "Installer for " + Model.DisplayName;
-                peBinary.AssemblyDescription = "Installer for " + Model.DisplayName;
-                peBinary.LegalCopyright = Model.PackageDetails.CopyrightStatement;
-                peBinary.FileVersion = Model.Version.ToString();
-                peBinary.ProductVersion = Model.Version.ToString();
-
-                peBinary.ProductVersion = Model.Version.ToString();
-                peBinary.FileVersion = Model.Version.ToString();
-                peBinary.Save();
-
+                Binary.Load(managedBootstrapTemporaryFile, BinaryLoadOptions.NoManaged).Continue(binary => {
+                    binary.SigningCertificate = Source.Certificate;
+                    binary.CompanyName = Model.Vendor;
+                    binary.Comments = "Installer for " + Model.DisplayName;
+                    binary.ProductName = "Installer for " + Model.DisplayName;
+                    binary.AssemblyTitle = "Installer for " + Model.DisplayName;
+                    binary.AssemblyDescription = "Installer for " + Model.DisplayName;
+                    binary.LegalCopyright = Model.PackageDetails.CopyrightStatement;
+                    binary.FileVersion = Model.Version.ToString();
+                    binary.ProductVersion = Model.Version.ToString();
+                    binary.ProductVersion = Model.Version.ToString();
+                    binary.FileVersion = Model.Version.ToString();
+                    return binary.Save();
+                }).Wait();
                 coappBootstrapBin.Attributes.SourceFile = managedBootstrapTemporaryFile;
             }
         }
 
         private void AddFeedIcons() {
-            if( Model.IconImage != null ) {
+            if (Model.IconImage != null) {
                 AddIcon("DEFAULT", Model.IconImage);
             }
 
-            foreach( var k in Model.ChildIcons.Keys  ) {
+            foreach (var k in Model.ChildIcons.Keys) {
                 try {
                     using (var srcStream = new MemoryStream(Convert.FromBase64String(Model.ChildIcons[k]))) {
                         AddIcon(k, Image.FromStream(srcStream));
                     }
-                } catch(Exception e) {
+                } catch  {
                     // Console.WriteLine("{0} --- {1}", e.Message,e.StackTrace);
                 }
             }
         }
 
-        private void AddIcon(string name, Image img ) {
+        private void AddIcon(string name, Image img) {
             if (img.Width > 256 || img.Height > 256) {
                 var widthIsConstraining = img.Width > img.Height;
                 // Prevent using images internal thumbnail
                 img.RotateFlip(RotateFlipType.Rotate180FlipNone);
                 img.RotateFlip(RotateFlipType.Rotate180FlipNone);
-                var newWidth = widthIsConstraining ? 256 : img.Width * 256 / img.Height;
-                var newHeight = widthIsConstraining ? img.Height * 256 / img.Width : 256;
+                var newWidth = widthIsConstraining ? 256 : img.Width*256/img.Height;
+                var newHeight = widthIsConstraining ? img.Height*256/img.Width : 256;
                 var newImage = img.GetThumbnailImage(newWidth, newHeight, null, IntPtr.Zero);
                 img.Dispose();
                 img = newImage;
@@ -184,7 +214,6 @@ namespace CoApp.Autopackage {
         }
 
         private dynamic AddNewComponent(dynamic parentDirectory, bool? isPrimary = null) {
-            
             var guid = Guid.NewGuid();
 
             var componentRef = wix.Product["Id=ProductFeature"].Add("ComponentRef");
@@ -200,21 +229,21 @@ namespace CoApp.Autopackage {
         }
 
         private dynamic FindOrCreateDirectory(dynamic parentDirectory, string subFolderPath) {
-            if( string.IsNullOrEmpty(subFolderPath)) {
+            if (string.IsNullOrEmpty(subFolderPath)) {
                 return parentDirectory;
             }
 
             var path = subFolderPath;
             string childPath = null;
             var i = subFolderPath.IndexOf('\\');
-            if( i > -1 ) {
+            if (i > -1) {
                 path = subFolderPath.Substring(0, i);
-                childPath = subFolderPath.Substring(i+1);
+                childPath = subFolderPath.Substring(i + 1);
             }
 
             var immediateSubdirectory = parentDirectory["Name=" + path];
 
-            if( immediateSubdirectory == null) {
+            if (immediateSubdirectory == null) {
                 immediateSubdirectory = parentDirectory.Add("Directory");
                 // immediateSubdirectory.Attributes.Id = path.MakeSafeDirectoryId() + (subFolderPath.MD5Hash());
                 string pid = parentDirectory.Attributes.Id.ToString();
@@ -224,7 +253,7 @@ namespace CoApp.Autopackage {
                 immediateSubdirectory.Attributes.Name = path;
             }
 
-            if(! string.IsNullOrEmpty(childPath)) {
+            if (! string.IsNullOrEmpty(childPath)) {
                 return FindOrCreateDirectory(immediateSubdirectory, childPath);
             }
 
@@ -233,22 +262,20 @@ namespace CoApp.Autopackage {
 
         private void AddFilesToWix() {
             var folders = Model.DestinationDirectoryFiles.Select(each => Path.GetDirectoryName(each.DestinationPath)).Distinct();
-            foreach( var folder in folders ) {
+            foreach (var folder in folders) {
                 var directoryElement = FindOrCreateDirectory(ProductDir, folder);
                 var component = AddNewComponent(directoryElement);
                 var filesInFolder = Model.DestinationDirectoryFiles.Where(each => Path.GetDirectoryName(each.DestinationPath) == folder).ToArray();
                 var first = true;
 
-                
-
-                foreach( var file in filesInFolder ) {
+                foreach (var file in filesInFolder) {
                     var filename = Path.GetFileName(file.DestinationPath);
                     var newFile = component.Add("File");
                     // newFile.Attributes.Id = filename.MakeSafeDirectoryId() + (folder.MD5Hash());
-                    
+
                     // GS01: Autopackage should detect collisions in destination files.
-                    newFile.Attributes.Id = "file_"+((filename + folder).MD5Hash());
-                    
+                    newFile.Attributes.Id = "file_" + ((filename + folder).MD5Hash());
+
                     newFile.Attributes.Name = filename;
                     if (first) {
                         newFile.Attributes.KeyPath = "yes";
@@ -277,7 +304,7 @@ namespace CoApp.Autopackage {
 
                 // generate each native assembly Manifest
                 var manifestTempFile = manifestFilename.GetFileInTempFolder();
-                File.WriteAllText( manifestTempFile, assembly.AssemblyManifest);
+                File.WriteAllText(manifestTempFile, assembly.AssemblyManifest);
 
                 // create the CDF from the manifest
                 // GAH: Stupid workaround.
@@ -290,7 +317,7 @@ namespace CoApp.Autopackage {
                 }
 
                 var rc = Tools.ManifestTool.Exec("-manifest \"{0}\" -hashupdate -makecdfs", manifestTempFile);
-                if( rc != 0 ) {
+                if (rc != 0) {
                     throw new CoAppException("Unable to create manifest: [mt.exe -manifest \"{0}\" -hashupdate -makecdfs]".format(manifestTempFile));
                 }
 
@@ -307,7 +334,6 @@ namespace CoApp.Autopackage {
                     antecedent.Result.Save().Wait();
                 }, TaskContinuationOptions.AttachedToParent).Wait();
 
-                
                 // add manifest to wix document 
                 var component = AddNewComponent(ProductDir, true);
                 var newFile = component.Add("File");
@@ -318,7 +344,7 @@ namespace CoApp.Autopackage {
                 newFile.Attributes.Vital = "yes";
                 newFile.Attributes.DiskId = "1";
 
-                if( assembly.IsNativePolicy ) {
+                if (assembly.IsNativePolicy) {
                     newFile.Attributes.KeyPath = "yes";
                     newFile.Attributes.AssemblyManifest = assemblyManifestId;
                     newFile.Attributes.Assembly = "win32";
@@ -336,22 +362,22 @@ namespace CoApp.Autopackage {
                 // add the files to the WIX document
                 foreach (var file in assembly.Files) {
                     var filename = file.DestinationPath; //  Path.GetFileName(file.SourcePath);
-                    
+
                     // copy every file local. 
                     //var localPath = Path.Combine(Path.GetDirectoryName(manifestTempFile), Path.GetFileName(file.SourcePath));
                     //if (!File.Exists(localPath)) {
-                      //  File.Copy(file.SourcePath, localPath);
+                    //  File.Copy(file.SourcePath, localPath);
                     //}
-                    
+
                     newFile = component.Add("File");
-                    newFile.Attributes.Id = "X"+(index++) + filename.MakeSafeDirectoryId().MD5Hash();
+                    newFile.Attributes.Id = "X" + (index++) + filename.MakeSafeDirectoryId().MD5Hash();
                     newFile.Attributes.Name = filename;
                     newFile.Attributes.DiskId = "1";
                     newFile.Attributes.Source = file.SourcePath;
                     // newFile.Attributes.Source = Path.GetFileName(file.SourcePath);
                     newFile.Attributes.Vital = "yes";
 
-                    if( first ) {
+                    if (first) {
                         newFile.Attributes.KeyPath = "yes";
                         newFile.Attributes.AssemblyManifest = assemblyManifestId;
                         newFile.Attributes.Assembly = "win32";
@@ -369,14 +395,12 @@ namespace CoApp.Autopackage {
                 // add the files to the WIX document
             }*/
 
-           
             foreach (var managedAssembly in Model.Assemblies.Where(each => each.IsManaged)) {
                 // var component = AddNewComponent(ProductDir, true);
                 bool first = true;
 
                 var folders = managedAssembly.Files.Select(each => Path.GetDirectoryName(each.DestinationPath)).Distinct();
                 foreach (var folder in folders) {
-                    
                     var directoryElement = FindOrCreateDirectory(ProductDir, folder);
                     var component = AddNewComponent(directoryElement);
                     var filesInFolder = managedAssembly.Files.Where(each => Path.GetDirectoryName(each.DestinationPath) == folder).ToArray();
@@ -412,10 +436,8 @@ namespace CoApp.Autopackage {
             }
         }
 
-       
-
         private void AddCoAppProperties() {
-            var feed = Feed.ToString().FormatWithMacros(Source.PropertySheets.First().GetMacroValue,null);
+            var feed = Feed.ToString().FormatWithMacros(Source.PropertySheets.First().GetMacroValue, null);
             var property = wix.Product.Add("Property", feed);
             property.Attributes.Id = "CoAppPackageFeed";
 
@@ -441,7 +463,7 @@ namespace CoApp.Autopackage {
                 n.Name = wixNS + n.Name.LocalName;
             }
 
-            AutopackageMessages.Invoke.Verbose("Generated WixFile\r\n\r\n{0}",wixXml.ToString());
+            Event<Verbose>.Raise("Generated WixFile\r\n\r\n{0}", wixXml.ToString());
 
             // file names
             var wixfile = (Path.GetFileNameWithoutExtension(msiFilename) + ".wxs").GetFileInTempFolder();
@@ -453,23 +475,22 @@ namespace CoApp.Autopackage {
             wixXml.Save(wixfile);
 
             // Compile the Wix File
-            AutopackageMessages.Invoke.Verbose("==> Compiling Generated Wix Package.");
+            Event<Verbose>.Raise("==> Compiling Generated Wix Package.");
             var rc = Tools.WixCompiler.Exec(@"-nologo -sw1075 -out ""{0}"" ""{1}"" ", wixobj, wixfile);
             if (rc != 0) {
-                AutopackageMessages.Invoke.Error(MessageCode.WixCompilerError, null, "{0}\r\n{1}", Tools.WixCompiler.StandardOut, Tools.WixCompiler.StandardError);
+                Event<Error>.Raise(MessageCode.WixCompilerError, null, "{0}\r\n{1}", Tools.WixCompiler.StandardOut, Tools.WixCompiler.StandardError);
                 return null;
             }
 
-            AutopackageMessages.Invoke.Verbose("==> Linking Wix object files into MSI.");
+            Event<Verbose>.Raise("==> Linking Wix object files into MSI.");
 
             rc = Tools.WixLinker.Exec(@"-nologo -sw1076  -out ""{0}"" ""{1}""", msiFilename, wixobj);
             if (rc != 0) {
-                AutopackageMessages.Invoke.Error(MessageCode.WixLinkerError, null, "{0}\r\n{1}", Tools.WixLinker.StandardOut, Tools.WixLinker.StandardError);
+                Event<Error>.Raise(MessageCode.WixLinkerError, null, "{0}\r\n{1}", Tools.WixLinker.StandardOut, Tools.WixLinker.StandardError);
                 return null;
             }
-            AutopackageMessages.Invoke.Verbose("MSI Generated [{0}].", msiFilename);
+            Event<Verbose>.Raise("MSI Generated [{0}].", msiFilename);
             return msiFilename;
-
         }
     }
 }

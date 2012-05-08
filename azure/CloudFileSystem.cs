@@ -1,10 +1,20 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
 
 namespace CoApp.Azure {
+    using System;
+    using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Security.Cryptography;
     using Microsoft.Win32;
     using Microsoft.WindowsAzure;
@@ -13,8 +23,7 @@ namespace CoApp.Azure {
     using Toolkit.Extensions;
     using RegistryView = Toolkit.Configuration.RegistryView;
 
-    public class CloudFileSystem {       
- 
+    public class CloudFileSystem {
         private CloudStorageAccount _account;
         private static RegistryView _accountSettings = RegistryView.User["Azure\\Accounts"];
         private CloudBlobClient _blobStore;
@@ -23,12 +32,12 @@ namespace CoApp.Azure {
             _account = null;
         }
 
-        public void Connect(string accountName, string accountKey = null ) {
-            if( _account != null ) {
+        public void Connect(string accountName, string accountKey = null) {
+            if (_account != null) {
                 return;
             }
 
-            if( string.IsNullOrEmpty(accountKey)) {
+            if (string.IsNullOrEmpty(accountKey)) {
                 accountKey = _accountSettings[accountName, "key"].EncryptedStringValue;
             }
 
@@ -37,14 +46,16 @@ namespace CoApp.Azure {
         }
 
         public IEnumerable<string> ContainerNames {
-            get { return _blobStore.ListContainers().Select(each => each.Name); }
+            get {
+                return _blobStore.ListContainers().Select(each => each.Name);
+            }
         }
 
-        public bool ContainerExists(string containerName ) {
+        public bool ContainerExists(string containerName) {
             return _blobStore.ListContainers().Select(each => each.Name).ContainsIgnoreCase(containerName);
         }
 
-        public void AddContainer(string name ) {
+        public void AddContainer(string name) {
             Console.WriteLine("container:{0}", name);
 
             var container = _blobStore.GetContainerReference(name);
@@ -58,59 +69,58 @@ namespace CoApp.Azure {
                 var permissions = container.GetPermissions();
                 permissions.PublicAccess = BlobContainerPublicAccessType.Container;
                 container.SetPermissions(permissions);
-
-            }catch /* (StorageClientException e) */ {
+            } catch /* (StorageClientException e) */ {
                 throw new CoAppException("Failed creating container '{0}'. This may happen if the container was recently deleted (in which case, try again).".format(name));
             }
-        } 
+        }
 
-        public void RemoveContainer(string name ) {
-            if( ContainerExists(name) ) {
+        public void RemoveContainer(string name) {
+            if (ContainerExists(name)) {
                 var container = _blobStore.GetContainerReference(name);
                 container.Delete();
             }
         }
 
-        public IEnumerable<string> GetBlobNames( string containerName , string fileMask  = null) {
+        public IEnumerable<string> GetBlobNames(string containerName, string fileMask = null) {
             if (ContainerExists(containerName)) {
                 var container = _blobStore.GetContainerReference(containerName);
-                return container.ListBlobs(new BlobRequestOptions { UseFlatBlobListing = true }).Select(each => PathInContainer(each.Uri)).Where( each => each.IsWildcardMatch(fileMask));
+                return container.ListBlobs(new BlobRequestOptions { UseFlatBlobListing = true }).Select(each => PathInContainer(each.Uri)).Where(each => each.NewIsWildcardMatch(fileMask));
             }
             return Enumerable.Empty<string>();
-        } 
-
-        private static string PathInContainer( Uri path ) {
-            var result = path.AbsolutePath.Trim('/');
-            return result.Substring(result.IndexOf('/')+1);
         }
 
-        public IEnumerable<dynamic> GetBlobs( string containerName, string fileMask  = null ) {
-            if( string.IsNullOrEmpty(fileMask) ) {
+        private static string PathInContainer(Uri path) {
+            var result = path.AbsolutePath.Trim('/');
+            return result.Substring(result.IndexOf('/') + 1);
+        }
+
+        public IEnumerable<dynamic> GetBlobs(string containerName, string fileMask = null) {
+            if (string.IsNullOrEmpty(fileMask)) {
                 fileMask = "*";
             }
 
             if (ContainerExists(containerName)) {
                 var container = _blobStore.GetContainerReference(containerName);
-                
+
                 var blobs = container.ListBlobs(new BlobRequestOptions {UseFlatBlobListing = true, BlobListingDetails = BlobListingDetails.All});
-                var matchBlobs = blobs.Where(each => PathInContainer(each.Uri).IsWildcardMatch(fileMask)).ToArray();
-                
+                var matchBlobs = blobs.Where(each => PathInContainer(each.Uri).NewIsWildcardMatch(fileMask)).ToArray();
+
                 return matchBlobs.Select(each => {
-                    var blob = (CloudBlob) each;
-                    
+                    var blob = (CloudBlob)each;
+
                     return new {
                         name = PathInContainer(each.Uri),
                         uri = each.Uri,
                         md5 = blob.Properties.ContentMD5,
                         date = blob.Properties.LastModifiedUtc.ToLocalTime(),
-                        length = string.Format("{0:N0}",blob.Properties.Length),
+                        length = string.Format("{0:N0}", blob.Properties.Length),
                     };
                 });
             }
             return Enumerable.Empty<dynamic>();
         }
 
-        public void EraseBlob( string containerName, string blobName ) {
+        public void EraseBlob(string containerName, string blobName) {
             if (ContainerExists(containerName)) {
                 var container = _blobStore.GetContainerReference(containerName);
                 var blob = container.GetBlobReference(blobName);
@@ -118,7 +128,7 @@ namespace CoApp.Azure {
             }
         }
 
-         private string LookupMimeType(string extension) {
+        private string LookupMimeType(string extension) {
             extension = extension.ToLower();
 
             var key = Registry.ClassesRoot.OpenSubKey("MIME\\Database\\Content Type");
@@ -129,21 +139,20 @@ namespace CoApp.Azure {
                         return keyName;
                     }
                 }
-            }
-            finally {
+            } finally {
                 key.Close();
             }
             return "";
         }
 
-        public void WriteBlob( string containerName, string blobName, string localFilename, Action<long> progress ) {
-            if( !File.Exists(localFilename) ) {
+        public void WriteBlob(string containerName, string blobName, string localFilename, Action<long> progress) {
+            if (!File.Exists(localFilename)) {
                 throw new FileNotFoundException("local filename does not exist", localFilename);
             }
 
             if (ContainerExists(containerName)) {
                 var container = _blobStore.GetContainerReference(containerName);
-                
+
                 var blob = container.GetBlobReference(blobName);
                 var md5 = string.Empty;
                 try {
@@ -156,46 +165,43 @@ namespace CoApp.Azure {
                         }
                     }
                 } catch {
-                    
                 }
 
                 var localMD5 = string.Empty;
-                using( var stream = new FileStream(localFilename, FileMode.Open, FileAccess.Read, FileShare.Read) ) {
-                    localMD5  = MD5.Create().ComputeHash(stream).ToHexString();
+                using (var stream = new FileStream(localFilename, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+                    localMD5 = MD5.Create().ComputeHash(stream).ToHexString();
                 }
 
-                if( !string.Equals(md5, localMD5, StringComparison.CurrentCultureIgnoreCase)) {
+                if (!string.Equals(md5, localMD5, StringComparison.CurrentCultureIgnoreCase)) {
                     // different file
                     blob.Properties.ContentType = LookupMimeType(Path.GetExtension(localFilename));
                     try {
                         using (var stream = new ProgressStream(new FileStream(localFilename, FileMode.Open, FileAccess.Read, FileShare.Read), progress)) {
                             blob.UploadFromStream(stream);
-                            if( blob.Metadata.AllKeys.Contains("MD5")) {
+                            if (blob.Metadata.AllKeys.Contains("MD5")) {
                                 blob.Metadata["MD5"] = localMD5;
-                            }
-                            else {
+                            } else {
                                 blob.Metadata.Add("MD5", localMD5);
                             }
                             blob.SetMetadata();
                         }
-                    }
-                    catch (StorageException e) {
+                    } catch (StorageException e) {
                         if (e.ErrorCode == StorageErrorCode.BlobAlreadyExists || e.ErrorCode == StorageErrorCode.ConditionFailed) {
                             throw new ApplicationException("Concurrency Violation", e);
                         }
                         throw;
                     }
                 } else {
-                    if( progress != null ) {
+                    if (progress != null) {
                         progress(100);
                     }
                 }
                 return;
-            } 
+            }
             throw new CoAppException("Container '{0}' does not exist".format(containerName));
         }
 
-        public void ReadBlob( string containerName, string blobName, string localFilename, Action<long> progress ) {
+        public void ReadBlob(string containerName, string blobName, string localFilename, Action<long> progress) {
             if (ContainerExists(containerName)) {
                 var container = _blobStore.GetContainerReference(containerName);
                 var blob = container.GetBlobReference(blobName);
@@ -210,47 +216,44 @@ namespace CoApp.Azure {
                         }
                     }
                 } catch {
-                    
                 }
-                
-                if( blob.Properties.Length == 0 ) {
+
+                if (blob.Properties.Length == 0) {
                     throw new CoAppException("Remote blob '{0}' not found".format(blobName));
                 }
 
-                if( File.Exists(localFilename) ) {
+                if (File.Exists(localFilename)) {
                     var localMD5 = string.Empty;
-                    using( var stream = new FileStream(localFilename, FileMode.Open, FileAccess.Read, FileShare.Read) ) {
-                        localMD5  = MD5.Create().ComputeHash(stream).ToHexString();
+                    using (var stream = new FileStream(localFilename, FileMode.Open, FileAccess.Read, FileShare.Read)) {
+                        localMD5 = MD5.Create().ComputeHash(stream).ToHexString();
                     }
-                    if( string.Equals(localMD5, md5, StringComparison.CurrentCultureIgnoreCase)) {
-                        if( progress != null ) {
+                    if (string.Equals(localMD5, md5, StringComparison.CurrentCultureIgnoreCase)) {
+                        if (progress != null) {
                             progress(100);
                         }
 
                         return;
                     }
 
-                    localFilename.TryHardToDelete();    
+                    localFilename.TryHardToDelete();
                 }
-                
+
                 try {
-                    using( var stream = new ProgressStream( new FileStream(localFilename, FileMode.CreateNew), blob.Properties.Length , progress )) {
+                    using (var stream = new ProgressStream(new FileStream(localFilename, FileMode.CreateNew), blob.Properties.Length, progress)) {
                         blob.DownloadToStream(stream);
                     }
                     // blob.dow
                     // blob.DownloadToFile(localFilename);
-                }
-                catch (StorageException e) {
+                } catch (StorageException e) {
                     if (e.ErrorCode == StorageErrorCode.BlobAlreadyExists || e.ErrorCode == StorageErrorCode.ConditionFailed) {
                         throw new ApplicationException("Concurrency Violation", e);
                     }
                     throw;
                 }
                 return;
-            } 
+            }
             throw new CoAppException("Container '{0}' does not exist".format(containerName));
         }
-
     }
 
     internal class ProgressStream : Stream {
@@ -277,25 +280,36 @@ namespace CoApp.Azure {
         }
 
         public override bool CanRead {
-            get { return _innerStream.CanRead; }
+            get {
+                return _innerStream.CanRead;
+            }
         }
 
         public override bool CanSeek {
-
-            get { return _innerStream.CanSeek; }
+            get {
+                return _innerStream.CanSeek;
+            }
         }
 
         public override bool CanWrite {
-            get { return _innerStream.CanWrite; }
+            get {
+                return _innerStream.CanWrite;
+            }
         }
 
         public override long Length {
-            get { return _innerStream.Length; }
+            get {
+                return _innerStream.Length;
+            }
         }
 
         public override long Position {
-            get { return _innerStream.Position; }
-            set { _innerStream.Position = value; }
+            get {
+                return _innerStream.Position;
+            }
+            set {
+                _innerStream.Position = value;
+            }
         }
 
         public override void Flush() {
@@ -314,8 +328,9 @@ namespace CoApp.Azure {
             var bytesRead = _innerStream.Read(buffer, offset, count);
 
             // assume that this stream is only being read to (but not written to)...
-            if (_progressCallback != null)
+            if (_progressCallback != null) {
                 _progressCallback((_bytesProcessed += bytesRead)*100/_length);
+            }
 
             return bytesRead;
         }
@@ -323,8 +338,9 @@ namespace CoApp.Azure {
         public override void Write(byte[] buffer, int offset, int count) {
             _innerStream.Write(buffer, offset, count);
 
-            if (_progressCallback != null)
+            if (_progressCallback != null) {
                 _progressCallback((_bytesProcessed += count)*100/_length);
+            }
         }
     }
 }

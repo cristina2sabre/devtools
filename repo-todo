@@ -1,0 +1,101 @@
+Repo service
+    - should verify remote addresses to see if they are functional
+    - allows multiple feeds.
+
+GET http://coapp.org/feed 
+    - returns the whole feed 
+        
+XXX GET http://coapp.org/feed?delete-package=foo.1.2.3.4-x86-1234123412341234
+XXX    - deletes a package from the feed
+    
+GET http://coapp.org/feed?add-package=http://url-to-file
+    - downloads the file from the remote address and adds it to the feed
+
+GET http://coapp.org/feed?copy-package=http://url-to-file
+    - downloads the file from the remote address and adds it to the feed (uploading to our repo)
+    
+GET http://coapp.org/feed?q=<partial-package-name>
+    - returns a feed containing packages that match that.
+    
+PUT http://coapp.org/feed <file>
+    - uploads a package to the server and adds it to the feed
+    
+
+GET http://coapp.org/feed 
+GET http://coapp.org/feed?add-package=http://url-to-file
+GET http://coapp.org/feed?copy-package=http://url-to-file
+GET http://coapp.org/feed?q=<partial-package-name>
+PUT http://coapp.org/feed <file>
+
+
+Feeds can be Active, Passive and Ignored
+
+coapp command line changes:
+    --scan-passive 
+    --scan-all
+    
+    --stability=-100
+    --unstable          // same as --stability=-100
+    
+    feed-active <feed>
+    feed-passive <feed>
+    feed-ignore <feed>
+    
+Add Incompatibility Check to managed-bootstrap
+    - give message before proceeding.
+    - forcably remove old versions if a compatible version is not installed.
+    - forcable remove old packages.
+    
+Add Quiet/passive install modes NOW
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+Getting close to RC!
+    - SxSPlus API (for extensions/plugins)
+    - Faux Packages
+    - /quiet, /passive install 
+
+Feed Changes
+    - three states: active, passive, ignored
+    - multiple coapp feeds 
+        - current,
+        - old, 
+        - firehose
+
+Coapp Cleaner:
+    - now with more scrubbing power
+    - auto-grab-latest
+
+Bootstrapper:
+    - Can Nuke-from-orbit older versions
+
+Repository Server:
+    - simple REST commands
+    - GET http://coapp.org/feed 
+    - GET http://coapp.org/feed?add-package=http://url-to-file
+    - GET http://coapp.org/feed?copy-package=http://url-to-file
+    - GET http://coapp.org/feed?q=<partial-package-name>
+    - PUT http://coapp.org/feed <file>
+    - should verify remote addresses to see if they are functional
+
+upcoming coapp command line changes:
+    --scan-passive 
+    --scan-all
+    
+    --stability=<value> // defaults to 0
+    --unstable          // same as --stability=-100
+    
+    feed-active <feed>
+    feed-passive <feed>
+    feed-ignore <feed>
+
+GSOC
+    - 1 slot secured
+    - 1 more faux-slot

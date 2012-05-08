@@ -1,103 +1,41 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
 
 namespace CoApp.Bootstrapper {
-    using System.Collections;
+    using System;
     using System.Diagnostics;
     using System.Globalization;
     using System.IO;
-    using System.Net;
+    using System.Linq;
     using System.Reflection;
     using System.Runtime.InteropServices;
     using System.Security.AccessControl;
     using System.Security.Cryptography.X509Certificates;
     using System.Security.Principal;
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using System.Windows;
-    using System.Windows.Input;
     using Microsoft.Win32;
 
-
-    public enum ProgressWeight {
-        Tiny = 1,
-        Low,
-        Medium,
-        Large = 5,
-        Huge = 10,
-        Massive = 20,
-    }
-
-    public class ProgressFactor {
-        internal int Weight;
-        private int _progress;
-
-        public int Progress {
-            get { return _progress; }
-            set {
-                if (value >= 0 && value <= 100 && _progress != value) {
-                    _progress = value;
-                    Tracker.Updated();
-                }
-            }
-        }
-        public ProgressFactor(ProgressWeight weight) {
-            Weight = (int)weight;
-        }
-
-        internal MultifactorProgressTracker Tracker;
-    }
-
-    public class MultifactorProgressTracker : IEnumerable {
-        private readonly List<ProgressFactor> _factors = new List<ProgressFactor>();
-        private int _total;
-        public int Progress { get; private set; }
-
-        public delegate void Changed(int progress);
-        public event Changed ProgressChanged;
-
-        private void RecalcTotal() {
-            _total = _factors.Sum(each => each.Weight * 100);
-            Updated();
-        }
-
-        public void Updated() {
-            var progress = _factors.Sum(each => each.Weight * each.Progress);
-            progress = (progress * 100 / _total);
-
-            if (Progress != progress) {
-                Progress = progress;
-                if (ProgressChanged != null) {
-                    ProgressChanged(Progress);
-                }
-            }
-        }
-
-        public static implicit operator int(MultifactorProgressTracker progressTracker) {
-            return progressTracker.Progress;
-        }
-
-        public void Add(ProgressFactor factor) {
-            _factors.Add(factor);
-            factor.Tracker = this;
-            RecalcTotal();
-        }
-
-        public IEnumerator GetEnumerator() {
-            throw new NotImplementedException();
-        }
-    }
-
-
     internal class SingleStep {
-        /// <summary>
-        /// This is the version of coapp that must be installed for the bootstrapper to continue.
-        /// This should really only be updated when there is breaking changes in the client library
-        /// </summary>
-        public const string MIN_COAPP_VERSION = "1.2.0.141";
+        public static string MIN_COAPP_VERSION_STRING = "1.2.0.228";
 
+        public static ulong INCOMPATIBLE_VERSION = VersionStringToUInt64("1.2.0.228");
+
+        /// <summary>
+        ///   This is the version of coapp that must be installed for the bootstrapper to continue. This should really only be updated when there is breaking changes in the client library
+        /// </summary>
+        public static ulong MIN_COAPP_VERSION = Math.Max(VersionStringToUInt64(MIN_COAPP_VERSION_STRING), INCOMPATIBLE_VERSION);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
@@ -108,14 +46,18 @@ namespace CoApp.Bootstrapper {
         private const string CoAppUrl = "http://coapp.org/resources/";
         internal static string MsiFilename;
         internal static string MsiFolder;
+        internal static bool Quiet;
+        internal static bool Passive;
+        internal static bool Remove;
+
         internal static string BootstrapFolder;
         private static int _progressDirection = 1;
         private static int _currentTotalTicks = -1;
         private static int _currentProgress;
         internal static bool Cancelling;
         internal static Task InstallTask;
-        
-        public static ProgressFactor ResourceDllDownload= new ProgressFactor(ProgressWeight.Tiny);
+
+        public static ProgressFactor ResourceDllDownload = new ProgressFactor(ProgressWeight.Tiny);
         public static ProgressFactor CoAppPackageDownload = new ProgressFactor(ProgressWeight.Tiny);
         public static ProgressFactor CoAppPackageInstall = new ProgressFactor(ProgressWeight.Tiny);
         public static ProgressFactor EngineStartup = new ProgressFactor(ProgressWeight.Low);
@@ -123,7 +65,7 @@ namespace CoApp.Bootstrapper {
         public static MultifactorProgressTracker Progress;
 
         static SingleStep() {
-            Progress = new MultifactorProgressTracker() {ResourceDllDownload, CoAppPackageDownload, CoAppPackageInstall, EngineStartup};
+            Progress = new MultifactorProgressTracker {ResourceDllDownload, CoAppPackageDownload, CoAppPackageInstall, EngineStartup};
 
             Progress.ProgressChanged += p => {
                 if (MainWindow.MainWin != null) {
@@ -132,15 +74,14 @@ namespace CoApp.Bootstrapper {
             };
         }
 
-        [STAThreadAttribute]
+        [STAThread]
         [LoaderOptimization(LoaderOptimization.MultiDomainHost)]
         public static void Main(string[] args) {
-            var commandline = args.Aggregate(string.Empty, (current, each) => current + " \"" + each+"\"").Trim();
+            var commandline = args.Aggregate(string.Empty, (current, each) => current + " \"" + each + "\"").Trim();
             ElevateSelf(commandline);
 
             Logger.Warning("Startup :" + commandline);
             // Ensure that we are elevated. If the app returns from here, we are.
-            
 
             // get the folder of the bootstrap EXE
             BootstrapFolder = Path.GetDirectoryName(Path.GetFullPath(Assembly.GetExecutingAssembly().Location));
@@ -148,16 +89,28 @@ namespace CoApp.Bootstrapper {
             if (!Cancelling) {
                 if (commandline.Length == 0) {
                     MainWindow.Fail(LocalizedMessage.IDS_MISSING_MSI_FILE_ON_COMMANDLINE, "Missing MSI package name on command line!");
-                }
-                else if (!File.Exists(Path.GetFullPath(args[0]))) {
+                } else if (!File.Exists(Path.GetFullPath(args[0]))) {
                     MainWindow.Fail(LocalizedMessage.IDS_MSI_FILE_NOT_FOUND, "Specified MSI package name does not exist!");
-                }
-                else if (!ValidFileExists(Path.GetFullPath(args[0]))) {
+                } else if (!ValidFileExists(Path.GetFullPath(args[0]))) {
                     MainWindow.Fail(LocalizedMessage.IDS_MSI_FILE_NOT_VALID, "Specified MSI package is not signed with a valid certificate!");
                 } else {
                     // have a valid MSI file. Alrighty!
                     MsiFilename = Path.GetFullPath(args[0]);
                     MsiFolder = Path.GetDirectoryName(MsiFilename);
+
+                    if( args.Length > 1 ) {
+
+                        foreach (var split in args.Skip(1).Select(a => a.ToLower().Split(new[] {'='}, StringSplitOptions.RemoveEmptyEntries)).Where(split => split.Length >= 2)) {
+                            if( split[0] == "--uilevel" ) {
+                                Quiet = split[1] == "2";
+                                Passive= split[1] == "3";
+                            }
+
+                            if(split[0] == "--remove") {
+                                Remove = !string.IsNullOrEmpty(split[1]);
+                            }
+                        }
+                    }
 
                     // if this installer is present, this will exit right after.
                     if (IsCoAppInstalled) {
@@ -189,24 +142,24 @@ namespace CoApp.Bootstrapper {
             }
         }
 
-
-        [StructLayoutAttribute(LayoutKind.Sequential)]
+        [StructLayout(LayoutKind.Sequential)]
         public struct SidIdentifierAuthority {
-            [MarshalAsAttribute(UnmanagedType.ByValArray,SizeConst = 6,ArraySubType =UnmanagedType.I1)]
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6, ArraySubType = UnmanagedType.I1)]
             public byte[] Value;
         }
 
-        [DllImportAttribute("advapi32.dll", EntryPoint = "AllocateAndInitializeSid")]
-        [return:MarshalAsAttribute(UnmanagedType.Bool)]
-        public static extern bool AllocateAndInitializeSid([In] ref SidIdentifierAuthority pIdentifierAuthority,byte nSubAuthorityCount,uint nSubAuthority0,uint nSubAuthority1,uint nSubAuthority2,uint nSubAuthority3,uint nSubAuthority4,uint nSubAuthority5,int nSubAuthority6,uint nSubAuthority7,out IntPtr pSid);
+        [DllImport("advapi32.dll", EntryPoint = "AllocateAndInitializeSid")]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static extern bool AllocateAndInitializeSid([In] ref SidIdentifierAuthority pIdentifierAuthority, byte nSubAuthorityCount, uint nSubAuthority0, uint nSubAuthority1, uint nSubAuthority2, uint nSubAuthority3, uint nSubAuthority4,
+            uint nSubAuthority5, int nSubAuthority6, uint nSubAuthority7, out IntPtr pSid);
 
         [DllImport("advapi32.dll", SetLastError = true)]
-        static extern bool CheckTokenMembership(IntPtr TokenHandle, IntPtr SidToCheck, out bool IsMember);
+        private static extern bool CheckTokenMembership(IntPtr TokenHandle, IntPtr SidToCheck, out bool IsMember);
 
         internal static void ElevateSelf(string args) {
             try {
                 var ntAuth = new SidIdentifierAuthority();
-                ntAuth.Value = new byte[] { 0, 0, 0, 0, 0, 5 };
+                ntAuth.Value = new byte[] {0, 0, 0, 0, 0, 5};
 
                 var psid = IntPtr.Zero;
                 bool isAdmin;
@@ -256,22 +209,48 @@ namespace CoApp.Bootstrapper {
             return (((UInt64)major) << 48) + (((UInt64)minor) << 32) + (((UInt64)build) << 16) + (UInt64)revision;
         }
 
+        internal static bool IsIncompatibleCoAppInstalled {
+            get {
+                try {
+                    // look for old versions of the coapp that are too old.
+                    foreach (var ace in new [] {"CoApp.Toolkit" , "CoApp.Client", "CoApp.Toolit.Engine.Client" }.Select(asmName => new AssemblyCacheEnum(asmName))) {
+                        string assembly;
+                        while ((assembly = ace.GetNextAssembly()) != null) {
+                            var parts = assembly.Split(", ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
+                            // find the "version=" part
+                            if ((from p in parts
+                                select p.Split('=')
+                                into kvp
+                                where kvp[0].Equals("Version", StringComparison.InvariantCultureIgnoreCase)
+                                select VersionStringToUInt64(kvp[1])).Any(installed => installed <= INCOMPATIBLE_VERSION)) {
+                                return true;
+                            }
+                        }
+                    }
+                } catch {
+                    
+                }
+                return false;
+            }
+        }
+
         internal static bool IsCoAppInstalled {
             get {
                 try {
-                    var requiredVersion = VersionStringToUInt64(MIN_COAPP_VERSION);
                     var ace = new AssemblyCacheEnum("CoApp.Client");
                     string assembly;
-                    while ((assembly = ace.GetNextAssembly()) != null ) {
-                        var parts = assembly.Split(", ".ToCharArray(),StringSplitOptions.RemoveEmptyEntries);
+                    while ((assembly = ace.GetNextAssembly()) != null) {
+                        var parts = assembly.Split(", ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries);
                         // find the "version=" part
-                        if ((from p in parts 
-                             select p.Split('=') into kvp where kvp[0].Equals("Version", StringComparison.InvariantCultureIgnoreCase) 
-                             select VersionStringToUInt64(kvp[1])).Any(installed => installed >= requiredVersion)) {
+                        if ((from p in parts
+                            select p.Split('=')
+                            into kvp where kvp[0].Equals("Version", StringComparison.InvariantCultureIgnoreCase)
+                            select VersionStringToUInt64(kvp[1])).Any(installed => installed >= MIN_COAPP_VERSION)) {
                             return true;
                         }
-                    } 
-                } catch { }
+                    }
+                } catch {
+                }
                 return false;
             }
         }
@@ -283,32 +262,17 @@ namespace CoApp.Bootstrapper {
                     return openSubKey.GetValue(valueName).ToString();
                 }
             } catch {
-
             }
             return null;
         }
 
-       
         /// <summary>
-        /// Ok, So I think I need to explain what the hell I'm doing here.
-        /// 
-        /// Once the bootstrapper has got the toolkit actually installed, we want to launch the installer 
-        /// in a new appdomain in the current process.
-        /// 
-        /// Unfortunately, the first run of the engine can take a bit of time to walk thru the list of MSI files
-        /// in the windows/installer directory
-        /// 
-        /// So, we first create the InstallerPrep type in the new AppDomain, and abuse the IComparable interface to 
-        /// get back an int so we can spin on the progress of the engine running thru the MSI files.
-        /// 
-        /// Once that's done, we create the Installer object and exit this process once it's finished whatever its
-        /// doing.
-        /// 
-        /// Yeah, kinda lame, but it saves me from having to define a new interface that both the engine and bootstrapper
-        /// will have. :p
+        ///   Ok, So I think I need to explain what the hell I'm doing here. 
+        ///  Once the bootstrapper has got the toolkit actually installed,
+        ///  we want to launch the installer in a new appdomain in the current process.
         /// </summary>
-        /// <param name="bypassingBootstrapUI"></param>
-        /// <returns></returns>
+        /// <param name="bypassingBootstrapUI"> </param>
+        /// <returns> </returns>
         internal static void RunInstaller(bool bypassingBootstrapUI) {
             if (Cancelling) {
                 return;
@@ -321,6 +285,10 @@ namespace CoApp.Bootstrapper {
             if (!bypassingBootstrapUI) {
                 appDomain.SetData("COAPP_INSTALLED", "TRUE");
             }
+
+            appDomain.SetData("QUIET", Quiet);
+            appDomain.SetData("PASSIVE", Passive);
+            appDomain.SetData("REMOVE", Remove);
 
             try {
                 // If we're bypassing the UI, then we can jump straight to the Installer.
@@ -361,30 +329,31 @@ namespace CoApp.Bootstrapper {
                 var ping = new EventWaitHandle(false, EventResetMode.ManualReset, "BootstrapperPing", out wasCreated, ewhSec);
                 ping.Reset();
 
-#if DEBUG_X
-            var localAssembly = AcquireFile("CoApp.Client.dll");
-            Logger.Message("Local Assembly: " + localAssembly);
-
-            if (!string.IsNullOrEmpty(localAssembly)) {
-                // use the one found locally.
-                appDomain.CreateInstanceFromAndUnwrap(localAssembly, "CoApp.Toolkit.Engine.Client.Installer", false, BindingFlags.Default, null, new[] { MsiFilename }, null, null);
-                // if it didn't throw here, we can assume that the CoApp service is running, and we can get to our assembly.
-                ExitQuick();
-            }
-#endif
-
                 Task.Factory.StartNew(() => {
                     ping.WaitOne();
                     MainWindow.WhenReady += () => {
                         MainWindow.MainWin.Visibility = Visibility.Hidden;
                     };
                 });
+
+#if DEBUG_X
+            //var localAssembly = AcquireFile(@"c:\root\sync\coapp\output\any\debug\bin\CoApp.Client.dll");
+            //Logger.Message("Local Assembly: " + localAssembly);
+
+            //if (!string.IsNullOrEmpty(localAssembly)) {
+                // use the one found locally.
+                appDomain.CreateInstanceFromAndUnwrap(@"c:\root\sync\coapp\coapp\output\any\debug\bin\CoApp.Client.dll", "CoApp.Packaging.Client.UI.Installer", false, BindingFlags.Default, null, new[] { MsiFilename }, null, null);
+                // if it didn't throw here, we can assume that the CoApp service is running, and we can get to our assembly.
+                ExitQuick();
+            //}
+#endif
+
+              
                 // meh. use strong named assembly
-                appDomain.CreateInstanceAndUnwrap("CoApp.Client, Version="+MIN_COAPP_VERSION +", Culture=neutral, PublicKeyToken=1e373a58e25250cb",
-                    "CoApp.Toolkit.Engine.Client.Installer", false, BindingFlags.Default, null, new[] { MsiFilename }, null, null);
+                appDomain.CreateInstanceAndUnwrap("CoApp.Client, Version=" + MIN_COAPP_VERSION_STRING + ", Culture=neutral, PublicKeyToken=1e373a58e25250cb",
+                    "CoApp.Packaging.Client.UI.Installer", false, BindingFlags.Default, null, new[] { MsiFilename }, null, null);
                 // since we've done everything we need to do, we're out of here. Right Now.
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 Logger.Error("Critical FAIL ");
                 Logger.Error(e);
             }
@@ -405,7 +374,8 @@ namespace CoApp.Bootstrapper {
             var lcid = CultureInfo.CurrentCulture.LCID;
             var localizedName = String.Format("{0}.{1}{2}", name, lcid, extension);
             string f;
-            progressCompleted = progressCompleted ?? (p =>  {});
+            progressCompleted = progressCompleted ?? (p => {
+            });
 
             // is the localized file in the bootstrap folder?
             if (!String.IsNullOrEmpty(BootstrapFolder)) {
@@ -447,7 +417,7 @@ namespace CoApp.Bootstrapper {
             // is the standard file in the msi folder?
             if (!String.IsNullOrEmpty(MsiFolder)) {
                 f = Path.Combine(MsiFolder, filename);
-                
+
                 if (ValidFileExists(f)) {
                     progressCompleted(100);
                     return f;
@@ -491,7 +461,7 @@ namespace CoApp.Bootstrapper {
 
             // try normal file off the coapp server
             f = AsyncDownloader.Download(CoAppUrl, filename, progressCompleted);
-            
+
             if (ValidFileExists(f)) {
                 progressCompleted(100);
                 return f;
@@ -525,7 +495,7 @@ namespace CoApp.Bootstrapper {
                 }
 
                 var bufferSize = NativeMethods.MsiRecordDataSize(record, 1);
-                if (bufferSize > 1024 * 1024 * 1024 || bufferSize == 0) {
+                if (bufferSize > 1024*1024*1024 || bufferSize == 0) {
                     //bigger than 1Meg?
                     return null;
                 }
@@ -558,8 +528,8 @@ namespace CoApp.Bootstrapper {
             if (!String.IsNullOrEmpty(fileName) && File.Exists(fileName)) {
                 try {
 #if DEBUG
-                   Logger.Message("   Validity RESULT (assumed): True");
-                   return true;
+                    Logger.Message("   Validity RESULT (assumed): True");
+                    return true;
 #else
                     var wtd = new WinTrustData(fileName);
                     var result = NativeMethods.WinVerifyTrust(new IntPtr(-1), new Guid("{00AAC56B-CD44-11d0-8CC2-00C04FC295EE}"), wtd);
@@ -581,19 +551,17 @@ namespace CoApp.Bootstrapper {
                 if (!output) {
                     return null;
                 }
-            }
-            catch /* (Exception e) */ {
+            } catch /* (Exception e) */ {
                 return null;
             }
             return ret.ToString();
         }
-        
 
         public static string ProgramFilesAnyFolder {
             get {
                 var root = CoAppRootFolder.Value;
                 var programFilesAny = GetSpecialFolderPath(KnownFolder.ProgramFiles);
-                
+
                 var any = Path.Combine(root, "program files");
 
                 if (Environment.Is64BitOperatingSystem) {
@@ -602,12 +570,12 @@ namespace CoApp.Bootstrapper {
 
                 Symlink.MkDirectoryLink(Path.Combine(root, "program files (x86)"), GetSpecialFolderPath(KnownFolder.ProgramFilesX86) ?? GetSpecialFolderPath(KnownFolder.ProgramFiles));
                 Symlink.MkDirectoryLink(any, programFilesAny);
-               
+
                 Logger.Message("Returing '{0}' as program files directory", any);
                 return any;
             }
         }
-    
+
         internal static readonly Lazy<string> CoAppRootFolder = new Lazy<string>(() => {
             var result = GetRegistryValue(@"Software\CoApp", "Root");
 
@@ -629,9 +597,8 @@ namespace CoApp.Bootstrapper {
             return result;
         });
 
-
         // we need to keep this around, otherwise the garbage collector gets triggerhappy and cleans up the delegate before the installer is done.
-        private static SingleStep.NativeExternalUIHandler uihandler;
+        private static NativeExternalUIHandler uihandler;
         private static int _actualPercent;
 
         internal static void InstallCoApp() {
@@ -648,7 +615,7 @@ namespace CoApp.Bootstrapper {
                         // if this is the CoApp MSI, we don't need to fetch the CoApp MSI.
                         if (!IsCoAppToolkitMSI(MsiFilename)) {
                             // get coapp.toolkit.msi
-                            file = AcquireFile("CoApp.Toolkit.msi", percentDownloaded => CoAppPackageDownload.Progress = percentDownloaded);
+                            file = AcquireFile("CoApp.msi", percentDownloaded => CoAppPackageDownload.Progress = percentDownloaded);
                             CoAppPackageDownload.Progress = 100;
 
                             if (!IsCoAppToolkitMSI(file)) {
@@ -657,8 +624,53 @@ namespace CoApp.Bootstrapper {
                             }
                         }
 
+                        // if you have an incompatible version of CoApp, we need to block on removing it.
+                        if (IsIncompatibleCoAppInstalled) {
+                            
+                            var okToProceed = new ManualResetEvent(false);
+                            MainWindow.WhenReady += () => {
+                                MainWindow.MainWin.Opacity = 0;
+                                var answer = new PopupQuestion(
+                                    @"The CoApp Package Manager you have installed is incompatible 
+with the latest availible packages, and must be removed and 
+replaced with a newer version in order to continue.
+
+This will remove the existing CoApp installation and all packages 
+that are currently installed.", "Stop, don't continue", "Yes, Upgrade CoApp").ShowDialog() == true;
+                                
+                                if( !answer ) {
+                                    ExitQuick();
+                                }
+                                else {
+                                    okToProceed.Set();
+                                    MainWindow.MainWin.Opacity = 1;
+                                }
+                            };
+
+                            okToProceed.WaitOne();
+
+                            // bring down the cleaner, and let it do the nasty.
+                            var cleanerExe = AcquireFile("coapp.cleaner.exe");
+                            if( string.IsNullOrEmpty(cleanerExe)) {
+                                MainWindow.Fail(LocalizedMessage.IDS_UNABLE_TO_ACQUIRE_COAPP_CLEANER, "Unable to download the CoApp Cleaner Utility.");
+                                return;
+                            }
+
+                            var cleanerProc = Process.Start(cleanerExe, "--auto");
+                            if (cleanerProc != null) {
+                                cleanerProc.WaitForExit();
+                            }
+
+                            if (IsIncompatibleCoAppInstalled) {
+                                // we've failed to clean out the old version of CoApp.
+                                MainWindow.Fail(LocalizedMessage.IDS_UNABLE_TO_CLEAN_COAPP, "Unable to clean out the old versions of CoApp.");
+                                return;
+                            }
+
+                            // by this time, the old versions of coapp should be removed. 
+                        }
+
                         // We made it past downloading.
-                        
 
                         // bail if someone has told us to. (good luck!)
                         if (Cancelling) {
@@ -673,25 +685,28 @@ namespace CoApp.Bootstrapper {
                             var CoAppCacheFolder = Path.Combine(CoAppRootFolder.Value, ".cache", "packages");
                             Directory.CreateDirectory(CoAppCacheFolder);
 
+                            if( MsiCanonicalName.IndexOf(":") > -1 ) {
+                                MsiCanonicalName = MsiCanonicalName.Substring(MsiCanonicalName.IndexOf(":") + 1);
+                            }
+
                             var cachedPath = Path.Combine(CoAppCacheFolder, MsiCanonicalName + ".msi");
                             if (!File.Exists(cachedPath)) {
                                 File.Copy(file, cachedPath);
                             }
-                        }
-                        catch (Exception e) {
+                        } catch (Exception e) {
                             Logger.Error(e);
                         }
 
                         Logger.Warning("Running MSI");
                         // install CoApp.Toolkit msi. Don't blink, this can happen FAST!
-                        var result = NativeMethods.MsiInstallProduct(file, String.Format(@"TARGETDIR=""{0}"" ALLUSERS=1 COAPP_INSTALLED=1 REBOOT=REALLYSUPPRESS", ProgramFilesAnyFolder));
+                        var result = NativeMethods.MsiInstallProduct(file, String.Format(@"TARGETDIR=""{0}"" ALLUSERS=1 COAPP=1 REBOOT=REALLYSUPPRESS", ProgramFilesAnyFolder));
                         CoAppPackageInstall.Progress = 100;
 
                         // set the ui hander back to nothing.
                         NativeMethods.MsiSetExternalUI(null, 0x400, IntPtr.Zero);
                         InstallTask = null; // after this point, all you can do is exit the installer.
 
-                        Logger.Warning("Done Installing MSI rc={0}.",result);
+                        Logger.Warning("Done Installing MSI rc={0}.", result);
 
                         // did we succeed?
                         if (result == 0) {
@@ -706,11 +721,10 @@ namespace CoApp.Bootstrapper {
                             MainWindow.Fail(LocalizedMessage.IDS_CANT_CONTINUE, "Installation Engine failed to install. o_O");
                         }
                     }
-                } catch( Exception e ) {
+                } catch (Exception e) {
                     Logger.Error(e);
                     MainWindow.Fail(LocalizedMessage.IDS_SOMETHING_ODD, "This can't be good.");
-                }
-                finally {
+                } finally {
                     InstallTask = null;
                 }
                 // if we got to this point, kinda feels like we should be failing
@@ -727,7 +741,6 @@ namespace CoApp.Bootstrapper {
                     Logger.Error(e.StackTrace);
                     MainWindow.Fail(LocalizedMessage.IDS_SOMETHING_ODD, "This can't be good.");
                 }
-
             }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
@@ -752,7 +765,7 @@ namespace CoApp.Bootstrapper {
                         if (_currentTotalTicks == -1) {
                             break;
                         }
-                        _currentProgress += msg[3] * _progressDirection;
+                        _currentProgress += msg[3]*_progressDirection;
                         break;
                     case 3:
                         //Enables an action (such as CustomAction) to add ticks to the expected total number of progress of the progress bar.
@@ -761,15 +774,15 @@ namespace CoApp.Bootstrapper {
             }
 
             if (_currentTotalTicks > 0) {
-                CoAppPackageInstall.Progress = _currentProgress * 100 / _currentTotalTicks;
+                CoAppPackageInstall.Progress = _currentProgress*100/_currentTotalTicks;
             }
 
             // if the cancel flag is set, tell MSI
             return Cancelling ? 2 : 1;
         }
 
-
         private static string MsiCanonicalName;
+
         internal static bool IsCoAppToolkitMSI(string filename) {
             if (!ValidFileExists(filename)) {
                 return false;
@@ -782,16 +795,23 @@ namespace CoApp.Bootstrapper {
                 int hProduct;
                 if (NativeMethods.MsiOpenPackageEx(filename, 1, out hProduct) == 0) {
                     var sb = new StringBuilder(1024);
-                    
+
                     uint size = 1024;
                     NativeMethods.MsiGetProperty(hProduct, "ProductName", sb, ref size);
-                    
+
                     size = 1024;
                     var sb2 = new StringBuilder(1024);
                     NativeMethods.MsiGetProperty(hProduct, "CanonicalName", sb2, ref size);
+
+                    size = 1024;
+                    var sb3 = new StringBuilder(1024);
+                    NativeMethods.MsiGetProperty(hProduct, "ProductVersion", sb3, ref size);
+
                     NativeMethods.MsiCloseHandle(hProduct);
 
-                    if (sb.ToString().Equals("CoApp.Toolkit")) {
+                    var pkgVersion = VersionStringToUInt64(sb3.ToString());
+
+                    if ( pkgVersion >= MIN_COAPP_VERSION && sb.ToString().ToLower().Equals("coapp")) {
                         MsiCanonicalName = sb2.ToString();
                         return true;
                     }
@@ -800,7 +820,4 @@ namespace CoApp.Bootstrapper {
             return false;
         }
     }
-
- 
 }
-

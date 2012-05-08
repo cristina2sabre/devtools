@@ -1,6 +1,8 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack. All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
@@ -15,40 +17,6 @@ namespace CoApp.Toolkit.Utility {
     using Extensions;
     using Win32;
 
-    public enum ToolVendor {
-        Unknown,
-        Microsoft,
-        Cygwin,
-        Mingw,
-        Watcom,
-        Intel,
-        IBM,
-    }
-
-    public enum ToolType {
-        Unknown,
-        CCompiler,
-        CppCompiler,
-        Linker,
-        Assember,
-        ILAssembler,
-        ILDisasembler,
-        AssemblyLinker,
-        Lib,
-        Make,
-        MessageCompiler,
-        ResourceCompiler,
-        IDLCompiler,
-        ManifestTool
-    }
-
-    public struct ToolInfo {
-        public int MajorVersion;
-        public int MinorVersion;
-        public ToolVendor Vendor;
-        public ToolType Type;
-    }
-
     public class ToolSniffer {
         private static readonly RegistryView _settings = RegistryView.CoAppUser["Tools"];
         private static readonly Lazy<ToolSniffer> _sniffer = new Lazy<ToolSniffer>(() => new ToolSniffer());
@@ -57,7 +25,9 @@ namespace CoApp.Toolkit.Utility {
         }
 
         public static ToolSniffer Sniffer {
-            get { return _sniffer.Value; }
+            get {
+                return _sniffer.Value;
+            }
         }
 
         public ToolInfo Identify(string executablePath) {
@@ -73,8 +43,7 @@ namespace CoApp.Toolkit.Utility {
                     if (peInfo.VersionInfo.CompanyName.Contains("Microsoft")) {
                         result = IdentifyMicrosoftProduct(peInfo);
                     }
-                }
-                else {
+                } else {
                     // hmm. not embedding info. bad developer. no cookie!
                     if ((from di in peInfo.DependencyInformation where di.Filename.Contains("cygwin1") select di).Any()) {
                         var pi = new ProcessUtility(executablePath);
@@ -96,8 +65,7 @@ namespace CoApp.Toolkit.Utility {
                     _settings[key, "MinorVersion"].IntValue = result.MinorVersion;
                     _settings[key, "Type"].SetEnumValue(result.Type);
                 }
-            }
-            else {
+            } else {
                 Enum.TryParse(vendor, true, out result.Vendor);
                 result.MajorVersion = _settings[key, "MajorVersion"].IntValue;
                 result.MinorVersion = _settings[key, "MinorVersion"].IntValue;
@@ -130,16 +98,13 @@ namespace CoApp.Toolkit.Utility {
                     result.Type = ToolType.Assember;
                     break;
 
-
                 case "ilasm.exe":
                     result.Type = ToolType.ILAssembler;
                     break;
 
-
                 case "ildasm.exe":
                     result.Type = ToolType.ILDisasembler;
                     break;
-
 
                 case "as.exe":
                     result.Type = ToolType.AssemblyLinker;

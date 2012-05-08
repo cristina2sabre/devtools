@@ -15,6 +15,7 @@ namespace CoApp.Toolkit.Scan.Types
     using System.IO;
     using System.Linq;
     using System.Xml.Serialization;
+    using Collections;
 
     /// <summary>
 	/// Contains all information about the scanned project.
@@ -23,8 +24,8 @@ namespace CoApp.Toolkit.Scan.Types
 	public class ScanReport
 	{
 		#region Private Fields --------------------------------------------------------------------------------------------------
-		private Dictionary<int, ScannedFile> _fileHash = new Dictionary<int, ScannedFile>();
-		private Dictionary<string, ScannedDefine> _defineHash = new Dictionary<string, ScannedDefine>();
+		private IDictionary<int, ScannedFile> _fileHash = new XDictionary<int, ScannedFile>();
+		private IDictionary<string, ScannedDefine> _defineHash = new XDictionary<string, ScannedDefine>();
 		#endregion --------------------------------------------------------------------------------------------------------------
 
 		/// <summary>
@@ -40,7 +41,7 @@ namespace CoApp.Toolkit.Scan.Types
 			}
 			set
 			{
-				_fileHash = new Dictionary<int, ScannedFile>();
+				_fileHash = new XDictionary<int, ScannedFile>();
 				foreach (ScannedFile f in value)
 					_fileHash[f.ID] = f;
 			}
@@ -61,7 +62,7 @@ namespace CoApp.Toolkit.Scan.Types
 			}
 			set
 			{
-				_defineHash = new Dictionary<string, ScannedDefine>();
+				_defineHash = new XDictionary<string, ScannedDefine>();
 				foreach (ScannedDefine d in value)
 					_defineHash[d.Name] = d;
 			}
@@ -72,7 +73,7 @@ namespace CoApp.Toolkit.Scan.Types
 		/// </summary>
 		/// <value>The defines.</value>
 		[XmlIgnore]
-		public Dictionary<string, ScannedDefine> Defines
+		public IDictionary<string, ScannedDefine> Defines
 		{
 			get { return _defineHash; }
 			set { _defineHash = value; }
@@ -83,7 +84,7 @@ namespace CoApp.Toolkit.Scan.Types
 		/// </summary>
 		/// <value>The files.</value>
 		[XmlIgnore]
-		public Dictionary<int, ScannedFile> Files
+		public IDictionary<int, ScannedFile> Files
 		{
 			get { return _fileHash; }
 			set { _fileHash = value; }

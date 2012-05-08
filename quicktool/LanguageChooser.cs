@@ -15,6 +15,7 @@ namespace QuickTool {
     using System.Collections.Generic;
     using System.Linq;
     using System.Windows.Forms;
+    using CoApp.Toolkit.Collections;
 
     public partial class LanguageChooser : Form {
         public bool ok = true;
@@ -24,7 +25,7 @@ namespace QuickTool {
         public string clipSource = "";
         public int theme;
 
-        private static readonly Dictionary<string, string> languages = new Dictionary<string, string> {
+        private static readonly IDictionary<string, string> languages = new XDictionary<string, string> {
             {"ABAP","abap"},
             {"ActionScript","as"},
             {"ActionScript 3","as3"},

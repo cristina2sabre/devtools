@@ -70,9 +70,12 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Autopackage\AutopackageException.cs" />
     <Compile Include="Autopackage\AutopackageMain.cs" />
     <Compile Include="Autopackage\Extensions.cs" />
+    <Compile Include="Autopackage\FileEntry.cs" />
     <Compile Include="Autopackage\FileList.cs" />
+    <Compile Include="Autopackage\MessageCode.cs" />
     <Compile Include="Autopackage\PackageAssembly.cs" />
     <Compile Include="Autopackage\AutopackageModel.cs" />
     <Compile Include="Autopackage\PackageSource.cs" />
@@ -84,6 +87,7 @@
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
     <Compile Include="Autopackage\Tools.cs" />
+    <Compile Include="Autopackage\TrimPath.cs" />
     <Compile Include="Autopackage\WixDocument.cs" />
   </ItemGroup>
   <ItemGroup>

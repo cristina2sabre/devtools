@@ -17,6 +17,7 @@ namespace CoApp.Toolkit.Network {
     using System.IO;
     using System.Net;
     using System.Threading.Tasks;
+    using Collections;
     using Extensions;
     using Tasks;
     using Console = System.Console;
@@ -25,7 +26,7 @@ namespace CoApp.Toolkit.Network {
         private readonly string _host;
         private readonly int _port;
         private readonly HttpListener _listener = new HttpListener();
-        private readonly Dictionary<string, string> _virtualDirs = new Dictionary<string, string>();
+        private readonly IDictionary<string, string> _virtualDirs = new XDictionary<string, string>();
 
         public HttpServer(string host = "*", int port = 80 ) {
             _host = host.ToLower();

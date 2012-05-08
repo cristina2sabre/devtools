@@ -1,6 +1,8 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack . All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
@@ -8,14 +10,12 @@
 // </license>
 //-----------------------------------------------------------------------
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
 namespace CoApp.Developer.Toolkit.Publishing {
+    using System;
+    using System.Collections.Generic;
     using System.ComponentModel;
     using System.IO;
+    using System.Linq;
     using System.Runtime.InteropServices;
     using System.Security.Cryptography;
     using System.Security.Cryptography.X509Certificates;
@@ -31,7 +31,6 @@ namespace CoApp.Developer.Toolkit.Publishing {
     using Resource = ResourceLib.Resource;
 
     public class PeBinary : IDisposable {
-
         // const byte PUBLICKEYBLOB	= 	0x06;
         // const byte CUR_BLOB_VERSION	= 	0x02;
         // const ushort reserved 		= 	0x0000;
@@ -43,7 +42,6 @@ namespace CoApp.Developer.Toolkit.Publishing {
         // Public Key Blobs are documented here: http://msdn.microsoft.com/en-us/library/Aa387459
         // Private Key Blobs are documented here: http://msdn.microsoft.com/en-us/library/Aa387401
 
-
         private readonly string _filename;
         private bool _pendingChanges;
         private readonly PEInfo _info;
@@ -53,16 +51,27 @@ namespace CoApp.Developer.Toolkit.Publishing {
         private IEnumerable<ManifestResource> _manifestResources;
 
         private static Dictionary<string, PeBinary> _cache = new Dictionary<string, PeBinary>();
-        public string Filename { get { return _filename; } }
-        public PEInfo Info { get {return _info;} }
+
+        public string Filename {
+            get {
+                return _filename;
+            }
+        }
+
+        public PEInfo Info {
+            get {
+                return _info;
+            }
+        }
+
         public static IEnumerable<PeBinary> ModifiedBinaries {
             get {
-            return _cache.Values.Where(each => each._pendingChanges);
-        } }
+                return _cache.Values.Where(each => each._pendingChanges);
+            }
+        }
 
         public static PeBinary FindAssembly(string assemblyname, string version) {
             lock (_cache) {
-
                 // wait for everthing to stablilze
                 Task.WaitAll(_cache.Values.Select(each => each._loading).ToArray());
 
@@ -90,7 +99,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
 
         public static PeBinary Load(string filename) {
             filename = filename.GetFullPath().ToLower();
-            if(!File.Exists(filename) ) {
+            if (!File.Exists(filename)) {
                 throw new FileNotFoundException("Unable to find file", filename);
             }
 
@@ -100,8 +109,8 @@ namespace CoApp.Developer.Toolkit.Publishing {
 
             PeBinary result = null;
 
-            lock( _cache ) {
-                if( _cache.ContainsKey(filename) ) {
+            lock (_cache) {
+                if (_cache.ContainsKey(filename)) {
                     result = _cache[filename];
                 } else {
                     // otherwise, let's load it 
@@ -112,13 +121,12 @@ namespace CoApp.Developer.Toolkit.Publishing {
             // loads happen via a Task, so that no matter how we asked to get the assembly, only one copy will be ever loaded.
             try {
                 result._loading.Wait();
-            } catch( AggregateException ae ) {
+            } catch (AggregateException ae) {
                 Logger.Error(ae);
                 Logger.Error(ae.InnerException);
 
                 var inner = ae.Flatten().InnerException;
                 Console.WriteLine("FAIL: {0} / {1}\r\n{2}", inner.GetType(), inner.Message, inner.StackTrace);
-
             }
             return result;
         }
@@ -150,15 +158,13 @@ namespace CoApp.Developer.Toolkit.Publishing {
                             _legalTrademarks = TryGetVersionString(versionStringTable, "LegalTrademarks");
                             _fileDescription = TryGetVersionString(versionStringTable, "FileDescription");
                             _bugTracker = TryGetVersionString(versionStringTable, "BugTracker");
-
-
                         } catch {
                             // skip it if this fails.
                             Logger.Warning("File {0} failed to load win32 resources", filename);
                         }
                     }
-                } catch( Exception e ) {
-                    Logger.Warning("File {0} doesn't appear to have win32 resources",filename);
+                } catch (Exception) {
+                    Logger.Warning("File {0} doesn't appear to have win32 resources", filename);
                 }
 
                 if (IsManaged) {
@@ -230,7 +236,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                     } catch {
                     }
                 }
-                }); 
+            });
 
             _loading.ContinueWith((antecedent) => {
                 // check each of the assembly references, 
@@ -242,8 +248,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                             var dep = FindAssembly(ar.Name.Value, ar.Version.ToString());
                             if (dep == null) {
                                 Console.WriteLine("WARNING: Unsigned Dependent Assembly {0}-{1} not found.", ar.Name.Value, ar.Version.ToString());
-                            }
-                            else {
+                            } else {
                                 // we've found an unsigned dependency -- we're gonna remember this file for later.
                                 UnsignedDependentBinaries.Add(dep);
                             }
@@ -259,13 +264,11 @@ namespace CoApp.Developer.Toolkit.Publishing {
                 if (!string.IsNullOrEmpty(result)) {
                     return result;
                 }
-            }
-            catch {
-                
+            } catch {
             }
             return null;
         }
-        
+
         public bool IsManaged {
             get {
                 return _info.IsManaged;
@@ -275,9 +278,10 @@ namespace CoApp.Developer.Toolkit.Publishing {
         public bool ILOnly { get; private set; }
 
         private Assembly _mutableAssembly;
-        private Assembly MutableAssembly { 
+
+        private Assembly MutableAssembly {
             get {
-                if( !IsManaged ) {
+                if (!IsManaged) {
                     return null;
                 }
 
@@ -285,21 +289,20 @@ namespace CoApp.Developer.Toolkit.Publishing {
                     // copy this to a temporary file, because it locks the file until we're *really* done.
                     var temporaryCopy = _filename.CreateWritableWorkingCopy();
                     try {
-
                         var module = _host.LoadUnitFrom(temporaryCopy) as IModule;
 
                         if (module == null || module is Dummy) {
                             throw new CoAppException("{0} is not a PE file containing a CLR module or assembly.".format(_filename));
                         }
                         ILOnly = module.ILOnly;
-                        
+
                         //Make a mutable copy of the module.
                         var copier = new MetadataDeepCopier(_host);
                         var mutableModule = copier.Copy(module);
 
                         //Traverse the module. In a real application the MetadataVisitor and/or the MetadataTravers will be subclasses
                         //and the traversal will gather information to use during rewriting.
-                        var traverser = new MetadataTraverser() {
+                        var traverser = new MetadataTraverser {
                             PreorderVisitor = new MetadataVisitor(),
                             TraverseIntoMethodBodies = true
                         };
@@ -308,8 +311,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                         //Rewrite the mutable copy. In a real application the rewriter would be a subclass of MetadataRewriter that actually does something.
                         var rewriter = new MetadataRewriter(_host);
                         _mutableAssembly = rewriter.Rewrite(mutableModule) as Assembly;
-                    }
-                    finally {
+                    } finally {
                         // delete it, or at least trash it & queue it up for next reboot.
                         temporaryCopy.TryHardToDelete();
                     }
@@ -318,111 +320,223 @@ namespace CoApp.Developer.Toolkit.Publishing {
             }
         }
 
-        private string _comments;       //AssemblyDescription
-        private string _companyName;    //AssemblyCompany
-        private string _productName;    //AssemblyProduct
+        private string _comments; //AssemblyDescription
+        private string _companyName; //AssemblyCompany
+        private string _productName; //AssemblyProduct
         private string _assemblyVersion; //AssemblyVersion
-        private string _fileVersion;    //AssemblyFileVersion, 
-        private string _productVersion;    //<AssemblyFileVersion>
-        private string _internalName;   //<filename>
-        private string _originalFilename;   //<filename>
+        private string _fileVersion; //AssemblyFileVersion, 
+        private string _productVersion; //<AssemblyFileVersion>
+        private string _internalName; //<filename>
+        private string _originalFilename; //<filename>
         private string _legalCopyright; //AssemblyCopyright
-        private string _legalTrademarks;//AssemblyTrademark
-        private string _bugTracker;     //AssemblyBugtracker
+        private string _legalTrademarks; //AssemblyTrademark
+        private string _bugTracker; //AssemblyBugtracker
         private string _fileDescription; //AssemblyTitle
 
         public string AssemblyTitle {
-            get { return FileDescription; }
-            set { FileDescription = value; }
-        } 
+            get {
+                return FileDescription;
+            }
+            set {
+                FileDescription = value;
+            }
+        }
+
         public string FileDescription {
-            get { return _fileDescription; }
-            set { _pendingChanges = true; _fileDescription = value; }
+            get {
+                return _fileDescription;
+            }
+            set {
+                _pendingChanges = true;
+                _fileDescription = value;
+            }
         }
 
         public string BugTracker {
-            get { return _bugTracker; }
-            set { _pendingChanges = true; _bugTracker = value; }
+            get {
+                return _bugTracker;
+            }
+            set {
+                _pendingChanges = true;
+                _bugTracker = value;
+            }
         }
+
         public string AssemblyTrademark {
-            get { return LegalTrademarks; }
-            set { _pendingChanges = true; LegalTrademarks = value; }
-        } 
+            get {
+                return LegalTrademarks;
+            }
+            set {
+                _pendingChanges = true;
+                LegalTrademarks = value;
+            }
+        }
+
         public string LegalTrademarks {
-            get { return _legalTrademarks; }
-            set { _pendingChanges = true; _legalTrademarks = value; }
+            get {
+                return _legalTrademarks;
+            }
+            set {
+                _pendingChanges = true;
+                _legalTrademarks = value;
+            }
         }
+
         public string AssemblyCopyright {
-            get { return LegalCopyright; }
-            set { _pendingChanges = true;  LegalCopyright = value; }
-        } 
+            get {
+                return LegalCopyright;
+            }
+            set {
+                _pendingChanges = true;
+                LegalCopyright = value;
+            }
+        }
+
         public string LegalCopyright {
-            get { return _legalCopyright; }
-            set { _pendingChanges = true; _legalCopyright = value; }
+            get {
+                return _legalCopyright;
+            }
+            set {
+                _pendingChanges = true;
+                _legalCopyright = value;
+            }
         }
+
         public string InternalName {
-            get { return _internalName; }
-            set { _pendingChanges = true; _internalName = value; }
+            get {
+                return _internalName;
+            }
+            set {
+                _pendingChanges = true;
+                _internalName = value;
+            }
         }
+
         public string OriginalFilename {
-            get { return _originalFilename; }
-            set { _pendingChanges = true; _originalFilename = value; }
+            get {
+                return _originalFilename;
+            }
+            set {
+                _pendingChanges = true;
+                _originalFilename = value;
+            }
         }
+
         public string ProductVersion {
-            get { return _productVersion; }
-            set { _pendingChanges = true; _productVersion = value; }
-        } 
+            get {
+                return _productVersion;
+            }
+            set {
+                _pendingChanges = true;
+                _productVersion = value;
+            }
+        }
+
         public string AssemblyFileVersion {
-            get { return FileVersion; }
-            set { _pendingChanges = true; FileVersion = value; }
-        } 
+            get {
+                return FileVersion;
+            }
+            set {
+                _pendingChanges = true;
+                FileVersion = value;
+            }
+        }
+
         public string FileVersion {
-            get { return _fileVersion; }
-            set { _pendingChanges = true; _fileVersion = value; }
+            get {
+                return _fileVersion;
+            }
+            set {
+                _pendingChanges = true;
+                _fileVersion = value;
+            }
         }
+
         public string AssemblyVersion {
-            get { return _assemblyVersion; }
-            set { _pendingChanges = true; _assemblyVersion = value; }
+            get {
+                return _assemblyVersion;
+            }
+            set {
+                _pendingChanges = true;
+                _assemblyVersion = value;
+            }
         }
+
         public string AssemblyProduct {
-            get { return ProductName; }
-            set { _pendingChanges = true; ProductName = value; }
-        } 
+            get {
+                return ProductName;
+            }
+            set {
+                _pendingChanges = true;
+                ProductName = value;
+            }
+        }
+
         public string ProductName {
-            get { return _productName; }
-            set { _pendingChanges = true; _productName = value; }
+            get {
+                return _productName;
+            }
+            set {
+                _pendingChanges = true;
+                _productName = value;
+            }
         }
+
         public string AssemblyDescription {
-            get { return Comments; }
-            set { _pendingChanges = true; Comments = value; }
-        } 
-        public string Comments {
-            get { return _comments; }
-            set { _pendingChanges = true; _comments = value; }
+            get {
+                return Comments;
+            }
+            set {
+                _pendingChanges = true;
+                Comments = value;
+            }
         }
+
+        public string Comments {
+            get {
+                return _comments;
+            }
+            set {
+                _pendingChanges = true;
+                _comments = value;
+            }
+        }
+
         public string AssemblyCompany {
-            get { return CompanyName; }
-            set { _pendingChanges = true; CompanyName = value; }
-        } 
+            get {
+                return CompanyName;
+            }
+            set {
+                _pendingChanges = true;
+                CompanyName = value;
+            }
+        }
+
         public string CompanyName {
-            get { return _companyName; }
-            set { _pendingChanges = true; _companyName = value; }
+            get {
+                return _companyName;
+            }
+            set {
+                _pendingChanges = true;
+                _companyName = value;
+            }
         }
 
         private CertificateReference _strongNameKeyCertificate;
+
         public CertificateReference StrongNameKeyCertificate {
             get {
                 return _strongNameKeyCertificate;
             }
-            set { 
+            set {
                 _strongNameKeyCertificate = value;
                 _pendingChanges = true;
                 var pubKey = (_strongNameKeyCertificate.Certificate.PublicKey.Key as RSACryptoServiceProvider).ExportCspBlob(false);
                 var strongNameKey = new byte[pubKey.Length + 12];
                 // the strong name key requires a header in front of the public key:
-                    // unsigned int SigAlgId;
-                    // unsigned int HashAlgId;
-                    // ULONG cbPublicKey;
+                // unsigned int SigAlgId;
+                // unsigned int HashAlgId;
+                // ULONG cbPublicKey;
 
                 pubKey.CopyTo(strongNameKey, 12);
 
@@ -431,7 +545,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                 strongNameKey[1] = 0x24;
                 strongNameKey[2] = 0;
                 strongNameKey[3] = 0;
- 
+
                 // Set the AlgId in the key blob (CALG_RSA_SIGN)
                 // I've noticed this comes from the RSACryptoServiceProvider as CALG_RSA_KEYX
                 // but for strong naming we need it to be marked CALG_RSA_SIGN
@@ -446,7 +560,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                 strongNameKey[5] = 0x80;
                 strongNameKey[6] = 0;
                 strongNameKey[7] = 0;
-                
+
                 strongNameKey[8] = (byte)(pubKey.Length);
                 strongNameKey[9] = (byte)(pubKey.Length >> 8);
                 strongNameKey[10] = (byte)(pubKey.Length >> 16);
@@ -457,11 +571,12 @@ namespace CoApp.Developer.Toolkit.Publishing {
         }
 
         private byte[] _strongNameKey;
+
         public byte[] StrongNameKey {
             get {
                 return _strongNameKey;
             }
-            set { 
+            set {
                 _strongNameKey = value;
                 _pendingChanges = true;
             }
@@ -477,23 +592,24 @@ namespace CoApp.Developer.Toolkit.Publishing {
         }
 
         private CertificateReference _signingCertificate;
+
         public CertificateReference SigningCertificate {
-            get { return _signingCertificate; }
+            get {
+                return _signingCertificate;
+            }
             set {
                 _signingCertificate = value;
                 _pendingChanges = true;
             }
         }
 
-
         public void Save(bool autoHandleDependencies = false) {
             lock (this) {
-                if (_manifest != null ) {
+                if (_manifest != null) {
                     _pendingChanges = _manifest.Modified || _pendingChanges;
                 }
                 // Logger.Message("Saving Binary '{0}' : Pending Changes: {1} ", _filename, _pendingChanges);
                 if (_pendingChanges) {
-                   
                     // saves any changes made to the binary.
                     // work on a back up of the file
                     var tmpFilename = _filename.CreateWritableWorkingCopy();
@@ -523,7 +639,6 @@ namespace CoApp.Developer.Toolkit.Publishing {
 
                                             lock (dep) {
                                                 // this should wait until the dependency is finished saving, right?
-
                                             }
 
                                             if (dep.MutableAssembly.PublicKey.IsNullOrEmpty()) {
@@ -537,7 +652,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                                                     dep.AssemblyCopyright = AssemblyCopyright;
                                                     dep.AssemblyCompany = AssemblyCompany;
                                                     dep.AssemblyProduct = AssemblyProduct;
-                                                    
+
                                                     dep.Save();
                                                 } else {
                                                     throw new CoAppException("dependent assembly '{0}-{1}' not strong named".format(ar.Name.Value, ar.Version.ToString()));
@@ -552,7 +667,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                                 // we should see if we can get assembly attributes, since sometimes they can be set, but not the native ones.
                                 try {
                                     foreach (var a in MutableAssembly.AssemblyAttributes) {
-                                        var attributeArgument = (a.Arguments.FirstOrDefault() as Microsoft.Cci.MutableCodeModel.MetadataConstant);
+                                        var attributeArgument = (a.Arguments.FirstOrDefault() as MetadataConstant);
                                         if (attributeArgument != null) {
                                             var attributeName = a.Type.ToString();
                                             switch (attributeName) {
@@ -661,11 +776,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                             versionStringTable["BugTracker"] = _bugTracker;
 
                             versionResource.SaveTo(tmpFilename);
-
-                           
-
-                            
-                        } catch(Exception e) {
+                        } catch (Exception e) {
                             Console.WriteLine("{0} -- {1}", e.Message, e.StackTrace);
                         }
 
@@ -681,7 +792,6 @@ namespace CoApp.Developer.Toolkit.Publishing {
 
                         _filename.TryHardToDelete();
                         File.Move(tmpFilename, _filename);
-
                     } catch (Exception e) {
                         Logger.Error(e);
 
@@ -699,14 +809,11 @@ namespace CoApp.Developer.Toolkit.Publishing {
             }
         }
 
-
         /// <summary>
-        /// This puts the strong name into the actual file on disk.
-        /// 
-        /// The file MUST be delay signed by this point.
+        ///   This puts the strong name into the actual file on disk. The file MUST be delay signed by this point.
         /// </summary>
-        /// <param name="filename"></param>
-        /// <param name="?"></param>
+        /// <param name="filename"> </param>
+        /// <param name="?"> </param>
         public static void ApplyStrongName(string filename, CertificateReference certificate) {
             filename = filename.GetFullPath();
             filename.TryHardToMakeFileWriteable();
@@ -727,12 +834,12 @@ namespace CoApp.Developer.Toolkit.Publishing {
             Mscoree.StrongNameKeyDelete(wszKeyContainer);
         }
 
-        public static void StripSignatures( string filename ) {
+        public static void StripSignatures(string filename) {
             filename = filename.GetFullPath();
             filename.TryHardToMakeFileWriteable();
 
-            if( !File.Exists(filename)) {
-                throw new FileNotFoundException("Can't find file", filename );
+            if (!File.Exists(filename)) {
+                throw new FileNotFoundException("Can't find file", filename);
             }
 
             using (var f = File.Open(filename, FileMode.Open)) {
@@ -754,6 +861,7 @@ namespace CoApp.Developer.Toolkit.Publishing {
                 }
             }
         }
+
         public static void SignFile(string filename, CertificateReference certificate) {
             SignFile(filename, certificate.Certificate);
         }
@@ -772,17 +880,17 @@ namespace CoApp.Developer.Toolkit.Publishing {
 
             var signedOk = false;
             // try up to three times each url if we get a timestamp error
-            for( var i=0;i<urls.Length*3; i++ ) {
+            for (var i = 0; i < urls.Length*3; i++) {
                 try {
                     SignFileImpl(filename, certificate, urls[i%urls.Length]);
                     signedOk = true;
                     break; // whee it worked!
-                } catch( FailedTimestampException ) {
+                } catch (FailedTimestampException) {
                     continue;
                 }
             }
 
-            if( !signedOk) {
+            if (!signedOk) {
                 // we went thru each one 3 times, and it never signed?
                 throw new FailedTimestampException(filename, "All of them!");
             }
@@ -814,11 +922,10 @@ namespace CoApp.Developer.Toolkit.Publishing {
             Marshal.StructureToPtr(digitalSignExtendedInfo, ptr, false);
             // digitalSignInfo.pSignExtInfo = ptr;
 
-
             // Sign exe
             //
             if ((!CryptUi.CryptUIWizDigitalSign(DigitalSignFlags.NoUI, IntPtr.Zero, null, ref digitalSignInfo, ref pSignContext))) {
-                var rc = (uint) Marshal.GetLastWin32Error();
+                var rc = (uint)Marshal.GetLastWin32Error();
                 if (rc == 0x8007000d) {
                     // this is caused when the timestamp server fails; which seems intermittent for any timestamp service.
                     throw new FailedTimestampException(filename, timeStampUrl);
@@ -843,16 +950,16 @@ namespace CoApp.Developer.Toolkit.Publishing {
         }
 
         private NativeManifest _manifest;
-        
+
         public NativeManifest Manifest {
             get {
-                if( _manifest == null ) {
-                    if( _manifestResources.IsNullOrEmpty() ) {
+                if (_manifest == null) {
+                    if (_manifestResources.IsNullOrEmpty()) {
                         _manifest = new NativeManifest(null);
                         return _manifest;
                     }
-                    if( _manifestResources.Count() > 1 ) {
-                            throw new CoAppException("PE Binary with more than one manifest. Not yet supported. Wuff.");
+                    if (_manifestResources.Count() > 1) {
+                        throw new CoAppException("PE Binary with more than one manifest. Not yet supported. Wuff.");
                     }
                     _manifest = new NativeManifest(_manifestResources.FirstOrDefault().ManifestText);
                 }

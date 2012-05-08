@@ -14,6 +14,7 @@ namespace CoApp.Toolkit.Scan.Types
     using System.Collections.Generic;
     using System.Linq;
     using System.Xml.Serialization;
+    using Collections;
 
     /// <summary>
 	/// Contains information about a "define" found in the project.
@@ -22,8 +23,8 @@ namespace CoApp.Toolkit.Scan.Types
 	public class ScannedDefine : IComparable<ScannedDefine>
 	{		
 		#region Private Fields --------------------------------------------------------------------------------------------------
-		private Dictionary<int, int> _usedIn = new Dictionary<int, int>();
-		private Dictionary<string, int> _values = new Dictionary<string, int>();
+		private IDictionary<int, int> _usedIn = new XDictionary<int, int>();
+        private IDictionary<string, int> _values = new XDictionary<string, int>();
 		#endregion --------------------------------------------------------------------------------------------------------------
 
 		/// <summary>
@@ -43,7 +44,7 @@ namespace CoApp.Toolkit.Scan.Types
 				return _values.Keys.ToArray<string>();
 			}
 			set {
-				_values = new Dictionary<string,int>();
+				_values = new XDictionary<string,int>();
 				foreach (string s in value) 
 					_values[s] = 1;
 			}
@@ -63,7 +64,7 @@ namespace CoApp.Toolkit.Scan.Types
 			}
 			set
 			{
-				_usedIn = new Dictionary<int,int>();
+				_usedIn = new XDictionary<int,int>();
 				foreach (int i in value)
 					_usedIn[i] = 1;
 			}
@@ -74,7 +75,7 @@ namespace CoApp.Toolkit.Scan.Types
 		/// </summary>
 		/// <value>The used in.</value>
 		[XmlIgnore]
-		public Dictionary<int, int> UsedIn
+		public IDictionary<int, int> UsedIn
 		{
 			get { return _usedIn; }
 			set { _usedIn = value; }
@@ -85,7 +86,7 @@ namespace CoApp.Toolkit.Scan.Types
 		/// </summary>
 		/// <value>The values.</value>
 		[XmlIgnore]
-		public Dictionary<string, int> Values
+		public IDictionary<string, int> Values
 		{
 			get { return _values; }
 			set { _values = value; }

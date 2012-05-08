@@ -1,6 +1,8 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack. All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
@@ -8,19 +10,21 @@
 // </license>
 //-----------------------------------------------------------------------
 
-namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
+
+namespace CoApp.Developer.Toolkit.Scripting.Languages.PropertySheet {
     using System;
     using System.Collections.Generic;
     using System.Dynamic;
     using System.IO;
     using System.Linq;
-    using System.Text;
     using System.Text.RegularExpressions;
-    using Extensions;
+    using CoApp.Toolkit.Collections;
+    using CoApp.Toolkit.Extensions;
 
     public class PropertySheet : DynamicObject {
         private static readonly Regex Macro = new Regex(@"(\$\{(.*?)\})");
         private readonly List<Rule> _rules = new List<Rule>();
+        private readonly IDictionary<string, PropertySheet> _importedSheets = new XDictionary<string, PropertySheet>();
 
         public delegate IEnumerable<object> GetCollectionDelegate(string collectionName);
 
@@ -32,14 +36,20 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
 
         public string Filename { get; internal set; }
 
+        public IDictionary<string, PropertySheet> ImportedSheets {
+            get {
+                return _importedSheets;
+            }
+        } 
+
         public bool HasRules {
             get {
-                return _rules.Count > 0;
+                return Rules.Any();
             }
         }
 
         public bool HasRule(string name = "*", string parameter = null, string @class = null, string id = null) {
-            return (from rule in _rules
+            return (from rule in Rules
                     where rule.Name == name &&
                         (string.IsNullOrEmpty(parameter) ? null : parameter) == rule.Parameter &&
                             (string.IsNullOrEmpty(@class) ? null : @class) == rule.Class &&
@@ -48,17 +58,19 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
         }
 
         public IEnumerable<Rule> Rules {
-            get { return _rules; }
+            get {
+                return _importedSheets.Values.SelectMany(each => each.Rules).Union(_rules);
+            }
         }
 
         public virtual IEnumerable<string> FullSelectors {
             get {
-                return _rules.Select(each => each.FullSelector);
+                return Rules.Select(each => each.FullSelector);
             }
         }
 
         public IEnumerable<Rule> this[string name] {
-            get { return from r in _rules where r.Name == name select r; }
+            get { return from r in Rules where r.Name == name select r; }
         }
 
         public static PropertySheet Parse(string text, string originalFilename) {
@@ -132,9 +144,12 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
                             } else 
                             if (innerMacro.Contains(".")) {
                                 innerMacro = innerMacro.Substring(innerMacro.IndexOf('.') + 1).Trim();
-                                var r = eachItem.SimpleEval(innerMacro).ToString();
-                                value = value.Replace(outerMacro, r);
-                                keepGoing = true;
+                                var v = eachItem.SimpleEval(innerMacro);
+                                if (v != null) {
+                                    var r = v.ToString();
+                                    value = value.Replace(outerMacro, r);
+                                    keepGoing = true;
+                                }
                             }
                         }
                         catch {
@@ -153,7 +168,8 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
         }
 
         public override string ToString() {
-            return _rules.Aggregate("", (current, each) => current + each.SourceString);
+            var imports = _importedSheets.Keys.Aggregate((current, each) => current + "@import {0};\r\n".format(QuoteIfNeeded(each)));
+            return _rules.Aggregate(imports, (current, each) => current + each.SourceString);
         }
 
         /// <summary>
@@ -165,7 +181,7 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
         /// <param name="id"></param>
         /// <returns></returns>
         public Rule GetRule( string name = "*" , string parameter = null, string @class = null , string id = null ) {
-            var r = (from rule in _rules
+            var r = (from rule in Rules
             where rule.Name == name &&
                 (string.IsNullOrEmpty(parameter) ? null : parameter) == rule.Parameter &&
                     (string.IsNullOrEmpty(@class) ? null : @class) == rule.Class &&
@@ -191,7 +207,7 @@ namespace CoApp.Toolkit.Scripting.Languages.PropertySheet {
             // dashed-names properly.
             var alternateName = binder.Name.CamelCaseToDashed();
 
-            var val = (from rule in _rules where rule.Name == binder.Name || rule.Name == alternateName select rule).ToArray();
+            var val = (from rule in Rules where rule.Name == binder.Name || rule.Name == alternateName select rule).ToArray();
 
             switch (val.Length) {
                 case 0:

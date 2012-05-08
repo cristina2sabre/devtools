@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace CoApp.Toolkit.Scripting.Languages.CSV.Resources {
+namespace CoApp.Developer.Toolkit.Scripting.Languages.CSV.Resources {
     /// <summary>
     ///   A strongly-typed resource class, for looking up localized strings, etc.
     /// </summary>

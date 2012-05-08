@@ -19,10 +19,10 @@
 //	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 //	ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-namespace CoApp.Toolkit.Scripting.Languages.CSV.Events
+namespace CoApp.Developer.Toolkit.Scripting.Languages.CSV.Events
 {
     using System;
-    using Toolkit.Exceptions;
+    using Exceptions;
 
     /// <summary>
 	/// Provides data for the <see cref="M:CsvReader.ParseError"/> event.

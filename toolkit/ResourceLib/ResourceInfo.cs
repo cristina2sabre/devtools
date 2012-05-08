@@ -29,6 +29,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     using System.Collections.Generic;
     using System.ComponentModel;
     using System.Runtime.InteropServices;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
@@ -38,12 +39,12 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         private IntPtr _hModule = IntPtr.Zero;
         private Exception _innerException;
         private List<ResourceId> _resourceTypes;
-        private Dictionary<ResourceId, List<Resource>> _resources;
+        private IDictionary<ResourceId, List<Resource>> _resources;
 
         /// <summary>
         ///   A dictionary of resources, the key is the resource type, eg. "REGISTRY" or "16" (version).
         /// </summary>
-        public Dictionary<ResourceId, List<Resource>> Resources {
+        public IDictionary<ResourceId, List<Resource>> Resources {
             get { return _resources; }
         }
 
@@ -131,7 +132,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
             Unload();
 
             _resourceTypes = new List<ResourceId>();
-            _resources = new Dictionary<ResourceId, List<Resource>>();
+            _resources = new XDictionary<ResourceId, List<Resource>>();
 
             // load DLL
             _hModule = Kernel32.LoadLibraryEx(filename, IntPtr.Zero, Kernel32Contants.DONT_RESOLVE_DLL_REFERENCES | Kernel32Contants.LOAD_LIBRARY_AS_DATAFILE);

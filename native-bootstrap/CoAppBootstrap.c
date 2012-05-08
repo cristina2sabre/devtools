@@ -768,10 +768,10 @@ void ElevateSelf(const wchar_t* pszCmdLine) {
 		ZeroMemory(&sei, sizeof(SHELLEXECUTEINFO) );
 		GetModuleFileName(NULL, modulePath, MAX_PATH);
 		// make sure path has a .EXE on the end.
-		DebugPrintf(L"MODULE=%s",modulePath);
+		// DebugPrintf(L"MODULE=%s",modulePath);
 
 		newPath = TempFileName(Sprintf(L"Installer(%s).exe",GetFilenameFromPath(modulePath)));
-		DebugPrintf(L"NEWPATH=%s",newPath);
+		//DebugPrintf(L"NEWPATH=%s",newPath);
 
 		rc = CopyFile(modulePath, newPath, FALSE);
 
@@ -786,7 +786,7 @@ void ElevateSelf(const wchar_t* pszCmdLine) {
 		
 		if (!ShellExecuteEx(&sei)) {
 			rc = GetLastError();
-			DebugPrintf(L"FAILURE: %d", rc );
+			//DebugPrintf(L"FAILURE: %d", rc );
 			TerminateApplicationWithError(IDS_REQUIRES_ADMIN_RIGHTS,L"Administrator rights are required.");
 			return;
 		}

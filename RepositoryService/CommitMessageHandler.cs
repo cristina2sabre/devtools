@@ -1,6 +1,8 @@
 //-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack . All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
@@ -22,8 +24,8 @@ namespace CoApp.RepositoryService {
         private Tweeter _tweeter;
         private ProcessUtility _cmdexe = new ProcessUtility("cmd.exe");
         private ProcessUtility _robocopy = new ProcessUtility("robocopy.exe");
-        private Dictionary<string, string> _aliases;
-        public CommitMessageHandler(string twitterHandle, Dictionary<string,string> aliases) {
+        private IDictionary<string, string> _aliases;
+        public CommitMessageHandler(string twitterHandle, IDictionary<string,string> aliases) {
             if( !string.IsNullOrEmpty(twitterHandle) ) {
                 _tweeter = new Tweeter(twitterHandle);
             }
@@ -34,7 +36,7 @@ namespace CoApp.RepositoryService {
             response.WriteString("<html><body>Relative Path: {0}<br>GET : <br>", relativePath);
 
             foreach( var key in message ) {
-                response.WriteString("&nbsp;&nbsp;&nbsp;{0} = {1}<br>", key, message[key]);
+                response.WriteString("&nbsp;&nbsp;&nbsp;{0} = {1}<br>", key, message.GetValueAsString(key));
             }
 
             response.WriteString("</body></html>");
@@ -44,7 +46,7 @@ namespace CoApp.RepositoryService {
 
         
         public override Task Post(HttpListenerResponse response, string relativePath, UrlEncodedMessage message) {
-            var payload = (string)message["payload"];
+            var payload = (string)message.GetValueAsString("payload");
             if( payload == null ) {
                 response.StatusCode = 500;
                 response.Close();

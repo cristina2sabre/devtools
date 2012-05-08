@@ -38,8 +38,33 @@ namespace CoApp.DebugWatch {
                 return;
             }
 
+            if (args.Message.IndexOf("MSI (c)", StringComparison.CurrentCultureIgnoreCase) > -1) {
+                // skip stupid MSI messages
+                return;
+            }
+
+            if (args.Message.IndexOf("HR originated", StringComparison.CurrentCultureIgnoreCase) > -1) {
+                // skip stupid MSI messages
+                return;
+            }
+
+            if (args.Message.IndexOf("HR propagated", StringComparison.CurrentCultureIgnoreCase) > -1) {
+                // skip stupid MSI messages
+                return;
+            }
+            if (args.Message.IndexOf("SHIMVIEW", StringComparison.CurrentCultureIgnoreCase) > -1) {
+                // skip stupid MSI messages
+                return;
+            }
+
+            var trimmedMessage = args.Message.Trim();
+            if (trimmedMessage.Length == 0) {
+                // skip empty messages.
+                return;
+            }
+
             if (new [] {"coapp", "ptk", "autopackage", "tmp"}.Any(s => args.Process.ProcessName.IndexOf(s, StringComparison.CurrentCultureIgnoreCase) > -1)) {
-                var msg = new Message { Process = "{0}({1})".format(args.Process.ProcessName, args.Process.Id), Text = args.Message.UrlDecode(), FromProcStart = args.SinceProcessStarted.AsDebugOffsetString(), FromFirstEvent = args.SinceFirstEvent.AsDebugOffsetString() };
+                var msg = new Message { Process = "{0}({1})".format(args.Process.ProcessName, args.Process.Id), Text = trimmedMessage.UrlDecode(), FromProcStart = args.SinceProcessStarted.AsDebugOffsetString(), FromFirstEvent = args.SinceFirstEvent.AsDebugOffsetString() };
                 Dispatch(() => Add(msg));
             }
         }

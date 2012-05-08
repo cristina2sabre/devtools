@@ -1,12 +1,15 @@
 //-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack . All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
 //     You may not use the software except in compliance with the License. 
 // </license>
 //-----------------------------------------------------------------------
+
 
 namespace CoApp.RepositoryService {
     using System;
@@ -16,13 +19,11 @@ namespace CoApp.RepositoryService {
     using System.Net;
     using System.Threading.Tasks;
     using System.Xml;
-    using Ionic.Zlib;
-    using Toolkit.Engine.Client;
-    using Toolkit.Engine.Model.Atom;
-    using Toolkit.Exceptions;
+    using Packaging.Client;
+    using Packaging.Common;
+    using Packaging.Common.Model.Atom;
+    using Toolkit.Collections;
     using Toolkit.Extensions;
-    using Toolkit.Logging;
-    using Toolkit.Network;
     using Toolkit.Tasks;
     using System.ServiceModel.Syndication;
 
@@ -51,6 +52,14 @@ namespace CoApp.RepositoryService {
                     Directory.CreateDirectory(_packageStorageFolder);
                 }
             }
+
+            CurrentTask.Events += new DownloadProgress((remoteLocation, location, progress) => {
+                "Downloading {0}".format(remoteLocation.UrlDecode()).PrintProgressBar(progress);
+            });
+
+            CurrentTask.Events += new DownloadCompleted((remoteLocation, locallocation) => {
+                Console.WriteLine();                    
+            });
         }
 
         /*
@@ -66,6 +75,8 @@ namespace CoApp.RepositoryService {
         }
         */
 
+        private static readonly PackageManager PackageManager = new PackageManager();
+
         public override Task Put(HttpListenerResponse response, string relativePath, byte[] data) {
             if( data.Length < 1 ) {
                 response.StatusCode = 500;
@@ -78,11 +89,8 @@ namespace CoApp.RepositoryService {
                     var filename = "UploadedFile.bin".GenerateTemporaryFilename();
                     File.WriteAllBytes(filename, data);
 
-
-                    PackageManager.Instance.ConnectAndWait("RepositoryService", null, 5000);
-
                     // verify that the file is actually a valid package
-                    PackageManager.Instance.GetPackages(filename, messages: RepositoryServiceMain._messages).ContinueWith(
+                    PackageManager.QueryPackages(filename).ContinueWith(
                         antecedent => {
                             if( antecedent.IsFaulted ) {
                                 Console.WriteLine("Fault occurred after upload: {0}", filename);
@@ -111,7 +119,7 @@ namespace CoApp.RepositoryService {
 
                             var targetFilename = (pkg.CanonicalName + ".msi").ToLower();
                             var location = new Uri(_packagePrefixUrl, targetFilename);
-                            PackageManager.Instance.GetPackageDetails(pkg.CanonicalName, RepositoryServiceMain._messages).Wait();
+                            PackageManager.GetPackageDetails(pkg.CanonicalName).Wait();
 
                             //copy the package to the destination
                             if (_cloudFileSystem != null) {
@@ -120,15 +128,15 @@ namespace CoApp.RepositoryService {
                                     ConsoleExtensions.PrintProgressBar("{0} => {1}".format(pkg.CanonicalName, _packageStorageFolder), progress);
                                 });
 
-                                if (pkg.Name.Equals("coapp.toolkit", StringComparison.CurrentCultureIgnoreCase) && pkg.PublicKeyToken.Equals("1e373a58e25250cb", StringComparison.CurrentCultureIgnoreCase)) {
+                                if (pkg.CanonicalName.Matches(CanonicalName.CoAppItself)) {
                                     // update the default toolkit too
-                                    _cloudFileSystem.WriteBlob(_packageStorageFolder, "coapp.toolkit.msi", filename, false, (progress) => {
+                                    _cloudFileSystem.WriteBlob(_packageStorageFolder, "coapp.msi", filename, false, (progress) => {
                                         ConsoleExtensions.PrintProgressBar("{0} => {1}".format(_localfeedLocation, _packageStorageFolder), progress);
                                     });
                                     Console.WriteLine();
                                 }
 
-                                if (pkg.Name.Equals("coapp.devtools", StringComparison.CurrentCultureIgnoreCase) && pkg.PublicKeyToken.Equals("1e373a58e25250cb", StringComparison.CurrentCultureIgnoreCase)) {
+                                if (pkg.CanonicalName.Matches(CanonicalName.CoAppDevtools)) {
                                     // update the default toolkit too
                                     _cloudFileSystem.WriteBlob(_packageStorageFolder, "coapp.devtools.msi", filename, false, (progress) => {
                                         ConsoleExtensions.PrintProgressBar("{0} => {1}".format(_localfeedLocation, _packageStorageFolder), progress);
@@ -170,7 +178,7 @@ namespace CoApp.RepositoryService {
 
                                     // first, make sure that the feeds contains the intended feed location.
                                     if (feedItem.Model.Feeds == null) {
-                                        feedItem.Model.Feeds = new List<Uri>();
+                                        feedItem.Model.Feeds = new XList<Uri>();
                                     }
 
                                     if (!feedItem.Model.Feeds.Contains(_canonicalFeedUrl)) {
@@ -178,7 +186,7 @@ namespace CoApp.RepositoryService {
                                     }
 
                                     if (feedItem.Model.Locations == null) {
-                                        feedItem.Model.Locations = new List<Uri>();
+                                        feedItem.Model.Locations = new XList<Uri>();
                                     }
 
                                     if (!feedItem.Model.Locations.Contains(location)) {
@@ -197,9 +205,6 @@ namespace CoApp.RepositoryService {
                                         ConsoleExtensions.PrintProgressBar("{0} => {1}".format(_localfeedLocation+".gz", _packageStorageFolder), progress);
                                     });
                                     Console.WriteLine();
-                                    
-                                   
-                                    
                                 }
                             }
 

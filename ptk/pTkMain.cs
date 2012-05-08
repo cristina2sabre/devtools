@@ -1,6 +1,8 @@
 ﻿//-----------------------------------------------------------------------
 // <copyright company="CoApp Project">
-//     Copyright (c) 2011 Garrett Serack. All rights reserved.
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
 // </copyright>
 // <license>
 //     The software is licensed under the Apache 2.0 License (the "License")
@@ -8,19 +10,19 @@
 // </license>
 //-----------------------------------------------------------------------
 
+
 namespace CoApp.Ptk {
     using System;
     using System.Collections.Generic;
     using System.IO;
     using System.Linq;
     using System.Reflection;
-    using Toolkit.Configuration;
-    using Toolkit.Engine;
-    using Toolkit.Engine.Client;
+    using Developer.Toolkit.Exceptions;
+    using Developer.Toolkit.Scripting.Languages.PropertySheet;
+    using Packaging.Client;
+    using Toolkit.Collections;
     using Toolkit.Exceptions;
     using Toolkit.Extensions;
-    using Toolkit.Network;
-    using Toolkit.Scripting.Languages.PropertySheet;
     using Toolkit.Utility;
 
     internal class pTkMain {
@@ -78,7 +80,7 @@ pTK [options] action [buildconfiguration...]
 //                                build data 
 
 
-        private EasyPackageManager _easy = new EasyPackageManager();
+        private PackageManager _easy = new PackageManager();
 
 
         /// <summary>
@@ -132,7 +134,7 @@ pTK [options] action [buildconfiguration...]
         /// </summary>
         private bool _verbose;
         private bool _skipBuilt;
-        private Dictionary<string, string> _originalEnvironment = GetEnvironment();
+        private XDictionary<string, string> _originalEnvironment = GetEnvironment();
         /// <summary>
         /// Tell the user which tools we are using?
         /// </summary>
@@ -163,9 +165,9 @@ pTK [options] action [buildconfiguration...]
         /// Character limit for path on Vista is 1024 http://support.microsoft.com/kb/924032
         /// </remarks>
         /// <returns>A dictionary of path variables as strings</returns>
-        private static Dictionary<string, string> GetEnvironment() {
+        private static XDictionary<string, string> GetEnvironment() {
             var env = Environment.GetEnvironmentVariables();
-            return env.Keys.Cast<object>().ToDictionary(key => key.ToString(), key => env[key].ToString());
+            return env.Keys.Cast<object>().ToXDictionary(key => key.ToString(), key => env[key].ToString());
         }
 
         /// <summary>
@@ -363,18 +365,6 @@ pTK [options] action [buildconfiguration...]
                     SetSDK("Windows Sdk 6", _setenvcmd6, platform);
                     break;
 
-                    /*
-                case "wdk7600":
-                    var wdkFolder = RegistryView.System[@"SOFTWARE\Wow6432Node\Microsoft\WDKDocumentation\7600.091201\Setup", "Build"].Value as string;
-            
-                    if (string.IsNullOrEmpty(wdkFolder)) {
-                        wdkFolder = RegistryView.System[@"SOFTWARE\Microsoft\WDKDocumentation\7600.091201\Setup", "Build"].Value as string;
-                    }
-                    
-                    // C:\WinDDK\7600.16385.1\ fre x86 WIN7
-                    SetSDK("Windows WDK 7600", _wdksetenvcmd7600, platform);
-                    break;
-                    */
                 case "mingw":
                     SetMingwCompiler(platform);
                     break;
@@ -384,12 +374,112 @@ pTK [options] action [buildconfiguration...]
             }
         }
 
+        private void SetWDK( Rule build , string platform ) {
+            // pick up any wdk settings from the build/wdk property
+            var frechk = "fre";
+            var target = "XP";
+
+            var wdkProperty = build.HasProperty("wdk") ? build["wdk"] : null;
+
+            if( wdkProperty != null ) {
+                frechk = wdkProperty["frechk"] == null ? "fre" : wdkProperty["frechk"].Value;
+                target = wdkProperty["target"] == null ? "xp" : wdkProperty["target"].Value;
+            }
+            // start with the directory for the wdk 
+            var ddkLocation = Path.GetDirectoryName(_wdksetenvcmd7600.GetFullPath());
+            if( ddkLocation.EndsWith("bin")) {
+                ddkLocation = Path.GetDirectoryName(ddkLocation);
+            }
+
+            if( ddkLocation.IndexOf(' ') > -1 ) {
+                ddkLocation = "\"{0}\"".format(ddkLocation);
+            }
+
+            Environment.SetEnvironmentVariable("current_wdk_location", ddkLocation);
+            
+            var cmdline = ddkLocation;
+
+            // set the free/checked flag
+            switch( frechk.ToLower() ) {
+                case "check":
+                case "checked":
+                case "chk":
+                    cmdline += " chk";
+                    Environment.SetEnvironmentVariable("current_wdk_freechk", "chk" );
+                    break;
+
+                default:
+                    cmdline += " fre";
+                    Environment.SetEnvironmentVariable("current_wdk_freechk",  "fre");
+                    break;
+            }
+
+            // platform choice
+            cmdline += " "+platform.NormalizePlatform();
+
+            // target OS
+            switch( target.ToLower() ) {
+                case "wlh":
+                case "lh":
+                case "vista":
+                case "server2008":
+                case "2008":
+                case "windows6":
+                case "win6":
+                case "6":
+                    cmdline += " WLH";
+                    Environment.SetEnvironmentVariable("current_wdk_target", "WLH" );
+                    break;
+
+                case "win7":
+                case "7":
+                case "win6.1":
+                case "6.1":
+                case "2008r2":
+                case "r2":
+                case "server2008r2":
+                    cmdline += " WIN7";
+                    Environment.SetEnvironmentVariable("current_wdk_target", "WIN7");
+                    break;
+
+                case "wnet":
+                case "2003":
+                case "server2003":
+                case "5.2":
+                case "win5.2":
+                    cmdline += " WNET";
+                    Environment.SetEnvironmentVariable("current_wdk_target", "WNET");
+                    break;
+                
+                case "HAL":
+                    cmdline += " HAL";
+                    Environment.SetEnvironmentVariable("current_wdk_target", "HAL");
+                    break;
+
+                default:
+                    cmdline += " WXP";
+                    Environment.SetEnvironmentVariable("current_wdk_target", "WXP");
+                    break;
+            }
+
+            Console.WriteLine(@"WDK COMMAND LINE: ""{0}"" {1} & set ", _wdksetenvcmd7600, cmdline );
+
+            _cmdexe.Exec(@"/c ""{0}"" {1} & set ", _wdksetenvcmd7600, cmdline );
+
+            foreach (var x in _cmdexe.StandardOut.Split("\r\n".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)) {
+                var p = x.IndexOf("=");
+                if (p > 0) {
+                    Environment.SetEnvironmentVariable(x.Substring(0, p), x.Substring(p + 1));
+                }
+            }
+        }
+
         private void SwitchSdk( string sdk, string platform ) {
 
             switch (sdk) {
                 case "sdk7.1":
                     SetSDK("Windows Sdk 7.1", _setenvcmd71, platform);
-                    break;
+                     break;
 
                 case "sdk7":
                     SetSDK("Windows Sdk 7", _setenvcmd7, platform);
@@ -401,10 +491,6 @@ pTK [options] action [buildconfiguration...]
 
                 case "feb2003":
                     SetSDK("Platform SDK Feb 2003", _setenvcmd6, platform);
-                    break;
-
-                case "wdk7600":
-                    SetSDK("Windows WDK 7600", _wdksetenvcmd7600, platform);
                     break;
 
                 case "none":
@@ -506,8 +592,6 @@ pTK [options] action [buildconfiguration...]
 
             // _originalEnvironment.Add("COAPP", CoApp.Toolkit.Engine.PackageManagerSettings.CoAppRootDirectory);
             _originalEnvironment.AddOrSet("COAPP", "C:/programdata/");
-
-
 
             while (string.IsNullOrEmpty(buildinfo) || !File.Exists(buildinfo)) {
                 // if the user didn't pass in the file, walk up the tree to find the first directory that has a COPKG\.buildinfo file 
@@ -746,7 +830,7 @@ pTK [options] action [buildconfiguration...]
             }
             if (parameters.Any()) {
                 var allbuilds = from rule in _propertySheet.Rules where rule.Name != "*" select rule;
-                builds = parameters.Aggregate(Enumerable.Empty<Rule>(), (current, p) => current.Union(from build in allbuilds where build.Name.IsWildcardMatch(p) select build));
+                builds = parameters.Aggregate(Enumerable.Empty<Rule>(), (current, p) => current.Union(from build in allbuilds where build.Name.NewIsWildcardMatch(p) select build));
             }
 
             // are there even builds present?
@@ -798,7 +882,7 @@ pTK [options] action [buildconfiguration...]
                                 Configuration = build.Name,
                                 Compiler = compiler != null ? compiler.Value : "sdk7.1",
                                 Sdk = sdk != null ? sdk.Value : "sdk7.1",
-                                Platform = platform != null ? platform.Value : "x86",
+                                Platform = platform != null ? platform.Value.NormalizePlatform() : "x86",
                                 Number_of_Outputs = targets != null ? targets.Values.Count() : 0
                             }).ToTable().ConsoleOut();
                         break;
@@ -926,19 +1010,38 @@ REM ===================================================================
             ResetEnvironment();
 
             var compilerProperty = build["compiler"];
+            var sdkProperty = build["sdk"];
 
             var compiler = compilerProperty != null ? compilerProperty.Value : "sdk7.1";
-            var sdkProperty = build["sdk"];
             var sdk = sdkProperty != null ? sdkProperty.Value : "sdk7.1";
 
             var platformProperty = build["platform"];
-            var platform = platformProperty != null ? platformProperty.Value : "x86";
+            var platform = platformProperty != null ? platformProperty.Value.NormalizePlatform() : "x86";
 
-            if (!compiler.Contains("sdk") && !compiler.Contains("wdk")) {
-                SwitchSdk(sdk, platform);
+
+            if (compiler.Equals("wdk", StringComparison.InvariantCultureIgnoreCase) || compiler.Equals("ddk", StringComparison.InvariantCultureIgnoreCase) || sdk.Equals("wdk", StringComparison.InvariantCultureIgnoreCase) || sdk.Equals("ddk", StringComparison.InvariantCultureIgnoreCase)) {
+                // using the WDK trumps other settings.
+                if (_verbose) {
+                    using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
+                        Console.Write("Setting SDK: ");
+                    }
+                    using (new ConsoleColors(ConsoleColor.Green, ConsoleColor.Black)) {
+                        Console.Write("WDK");
+                    }
+                    using (new ConsoleColors(ConsoleColor.Yellow, ConsoleColor.Black)) {
+                        Console.WriteLine(" for [{0}]", platform);
+                    }
+                }
+                compiler = "wdk";
+                sdk = "wdk";
+                SetWDK( build, platform );
             }
-
-            SwitchCompiler(compiler,platform);
+            else {
+                if (!compiler.Contains("sdk")) {
+                    SwitchSdk(sdk, platform);
+                }
+                SwitchCompiler(compiler, platform);
+            }
 
             Environment.SetEnvironmentVariable("current_compiler", compiler);
             Environment.SetEnvironmentVariable("current_sdk", sdk);
@@ -951,7 +1054,7 @@ REM ===================================================================
                 try {
                     // set environment variables:
                     var savedVariables = _originalEnvironment;
-                    _originalEnvironment = new Dictionary<string, string>(savedVariables);
+                    _originalEnvironment = new XDictionary<string, string>(savedVariables);
 
                     var sets = build["set"];
                     if (sets != null) {
@@ -972,7 +1075,7 @@ REM ===================================================================
                             Exec(cmd.Value);
                         }
                     }
-                    catch (Exception e) {
+                    catch  {
                         //ignoring any failures from clean command.
                     }
                     File.Delete(Path.Combine(Environment.CurrentDirectory, "trace[{0}].xml".format(build.Name)));
@@ -1087,8 +1190,8 @@ REM ===================================================================
         }
 
         /*
-       private Dictionary<string,string> ExternalChildBuilds( Rule build ) {
-           var result = new Dictionary<string, string>();
+       private IDictionary<string,string> ExternalChildBuilds( Rule build ) {
+           var result = new XDictionary<string, string>();
            
            var uses = build["uses"];
            if (uses != null) {
@@ -1190,7 +1293,7 @@ REM ===================================================================
             foreach (var build in builds) {
                 // set environment variables:
                 var savedVariables = _originalEnvironment;
-                _originalEnvironment = new Dictionary<string, string>(savedVariables);
+                _originalEnvironment = new XDictionary<string, string>(savedVariables);
 
                 var sets = build["set"];
                 if (sets != null) {
@@ -1208,7 +1311,7 @@ REM ===================================================================
                 if( requires != null ) {
                     foreach( var pkg in requires.Values ) {
                         Console.WriteLine("Looking for {0}", pkg);
-                        var installedPkgs = _easy.GetPackages(pkg, installed:true).Result;
+                        var installedPkgs = _easy.QueryPackages(pkg, installed: true).Result;
                         if( !installedPkgs.Any()) {
                             // there isn't a matching installed package, we'd better install one.
                             // refresh the feeds, as a package dependency might have recently been built...
@@ -1216,7 +1319,7 @@ REM ===================================================================
                                 _easy.AddSessionFeed(feed);
                             }
 
-                            var pkgToInstall = _easy.GetPackages(pkg, installed: false, latest: true).Result;
+                            var pkgToInstall = _easy.QueryPackages(pkg, installed: false, latest: true).Result;
                             bool failed = false;
                             _easy.InstallPackage(pkgToInstall.First().CanonicalName, autoUpgrade: true).Wait();
 
@@ -1266,7 +1369,7 @@ REM ===================================================================
         private bool CheckTargets(Rule build, bool haltOnFail = true ) {
             // we need the environment set correctly here.
             var savedVariables = _originalEnvironment;
-            _originalEnvironment = new Dictionary<string, string>(savedVariables);
+            _originalEnvironment = new XDictionary<string, string>(savedVariables);
             
             var sets = build["set"];
             if (sets != null) {
@@ -1450,7 +1553,7 @@ REM ===================================================================
         private static int Help() {
             Logo();
             using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
-                help.Print();
+                Console.WriteLine(help);
             }
             return 0;
         }
@@ -1463,7 +1566,7 @@ REM ===================================================================
         /// </remarks>
         private static void Logo() {
             using (new ConsoleColors(ConsoleColor.Cyan, ConsoleColor.Black)) {
-                Assembly.GetEntryAssembly().Logo().Print();
+                Console.WriteLine(Assembly.GetEntryAssembly().Logo());
             }
             Assembly.GetEntryAssembly().SetLogo("");
         }
@@ -1472,6 +1575,7 @@ REM ===================================================================
     }
 
     public static class DictionaryExtension {
+        /*
         public static TValue AddOrSet<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value) where TValue : class {
             if( dictionary.ContainsKey(key) ) {
                 dictionary[key] = value;
@@ -1479,6 +1583,21 @@ REM ===================================================================
                 dictionary.Add(key, value);
             }
             return value;
+        }
+        */
+        public static string NormalizePlatform( this string platform ) {
+            if (string.IsNullOrEmpty(platform)) {
+                return "x86";
+            }
+
+            switch( platform.ToLower()) {
+                case "x64":
+                case "amd64":
+                case "64":
+                    return "x64";
+            }
+
+            return "x86";
         }
     }
 }

@@ -24,6 +24,7 @@ namespace QuickTool {
     using System.Threading.Tasks;
     using System.Windows.Forms;
     using System.Windows.Threading;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Configuration;
     using CoApp.Toolkit.Extensions;
     using CoApp.Toolkit.Network;
@@ -320,7 +321,7 @@ s
         private SoundPlayer beep;
         private SoundPlayer smallBeep;
         private SoundPlayer errorBeep;
-        private readonly Dictionary<string, string> bitlyCache = new Dictionary<string, string>();
+        private readonly IDictionary<string, string> bitlyCache = new XDictionary<string, string>();
 
         private static bool AudioCues {
             get { return RegistryView.ApplicationUser["#enable-audio-cues"].BoolValue; }

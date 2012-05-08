@@ -1,9 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
 
 namespace CoApp.Autopackage {
+    using System;
     using Toolkit.Exceptions;
     using Toolkit.Utility;
 
@@ -17,9 +25,10 @@ namespace CoApp.Autopackage {
 
         internal static void LocateCommandlineTools() {
             try {
-                WixCompiler = new ProcessUtility(ProgramFinder.ProgramFilesAndDotNet.ScanForFile("candle.exe", minimumVersion:"3.6",executableType:ExecutableInfo.managed));
+                WixCompiler = new ProcessUtility(ProgramFinder.ProgramFilesAndDotNet.ScanForFile("candle.exe", minimumVersion: "3.6", executableType: ExecutableInfo.managed));
             } catch {
-                throw new ConsoleException("Unable to find 'candle.exe' from WiX 3.5 installation. \r\n\r\n ****************\r\n Autopackage Requires Wix 3.6 to be installed\r\n Get it from (http://wix.codeplex.com/releases/view/75656)\r\n ****************\r\n");
+                throw new ConsoleException(
+                    "Unable to find 'candle.exe' from WiX 3.5 installation. \r\n\r\n ****************\r\n Autopackage Requires Wix 3.6 to be installed\r\n Get it from (http://wix.codeplex.com/releases/view/75656)\r\n ****************\r\n");
             }
 
             try {
@@ -45,7 +54,6 @@ namespace CoApp.Autopackage {
             } catch {
                 throw new ConsoleException("Unable to find 'al.exe' from Windows SDK.");
             }
-
 
             if (ShowTools) {
                 Console.WriteLine("Tools:");

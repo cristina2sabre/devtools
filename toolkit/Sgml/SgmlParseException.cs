@@ -100,7 +100,7 @@ namespace CoApp.Toolkit.Text.Sgml {
             base.GetObjectData(info, context);
         }
     }
-
+#if false
     /// <summary>
     ///   The different types of literal text returned by the SgmlParser.
     /// </summary>
@@ -2891,5 +2891,6 @@ namespace CoApp.Toolkit.Text.Sgml {
         public static bool EqualsIgnoreCase(string a, string b) {
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         }
-    }
+    } 
+#endif
 }

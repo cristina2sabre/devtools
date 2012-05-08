@@ -8,7 +8,7 @@
 // </license>
 //-----------------------------------------------------------------------
 
-namespace CoApp.Toolkit.Collections {
+namespace CoApp.Developer.Toolkit.Collections {
     using System;
     using System.Collections;
     using System.Collections.Generic;

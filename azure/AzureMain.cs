@@ -1,22 +1,32 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
 
 namespace CoApp.Azure {
+    using System;
+    using System.Collections.Generic;
     using System.IO;
+    using System.Linq;
     using System.Reflection;
-    using Microsoft.WindowsAzure;
     using Toolkit.Configuration;
     using Toolkit.Exceptions;
     using Toolkit.Extensions;
 
     public class AzureMain {
-        static int Main(string[] args) {
+        private static int Main(string[] args) {
             return new AzureMain().main(args);
         }
 
-        public static string help = @"
+        public static string help =
+            @"
 Usage:
 -------
 
@@ -49,26 +59,26 @@ Azure [options] action <parameters>
     rmdir   <container>:
     mkdir   <container>:
 ";
+
         private string _accountName;
         private string _accountKey;
         private bool _remember;
-        private bool _uri = false;
+        private bool _uri;
         private RegistryView _accountSettings = RegistryView.User["Azure\\Accounts"];
         private CloudFileSystem _cloudFileSystem = new CloudFileSystem();
-
 
         private string GetContainerName(string parameter) {
             if (string.IsNullOrEmpty(parameter)) {
                 return null;
             }
 
-            if( !parameter.Contains(":")) {
+            if (!parameter.Contains(":")) {
                 return null;
             }
 
             var bits = parameter.Split(':');
-            if( bits.Length > 0) {
-                if(bits[0].Length > 3 ) {
+            if (bits.Length > 0) {
+                if (bits[0].Length > 3) {
                     return bits[0];
                 }
             }
@@ -80,8 +90,8 @@ Azure [options] action <parameters>
                 return null;
             }
             var bits = parameter.Split(':');
-            if( bits.Length > 1) {
-                if(bits[0].Length > 3 ) {
+            if (bits.Length > 1) {
+                if (bits[0].Length > 3) {
                     return parameter.Substring(bits[0].Length + 1);
                 }
             }
@@ -89,7 +99,6 @@ Azure [options] action <parameters>
         }
 
         protected int main(IEnumerable<string> args) {
-
             try {
                 var options = args.Where(each => each.StartsWith("--")).Switches();
                 var parameters = args.Where(each => !each.StartsWith("--")).Parameters();
@@ -122,7 +131,7 @@ Azure [options] action <parameters>
                             _accountKey = last;
                             break;
 
-                        case "remember" :
+                        case "remember":
                             _remember = true;
                             break;
 
@@ -138,18 +147,18 @@ Azure [options] action <parameters>
 
                 Logo();
 
-                if( string.IsNullOrEmpty(_accountName) ) {
+                if (string.IsNullOrEmpty(_accountName)) {
                     // is there a default?
                     _accountName = _accountSettings["#default"].StringValue;
                 }
 
-                if( string.IsNullOrEmpty(_accountKey)) {
+                if (string.IsNullOrEmpty(_accountKey)) {
                     _accountKey = _accountSettings[_accountName, "key"].EncryptedStringValue;
                 }
 
-                if( _remember ) {
+                if (_remember) {
                     Console.WriteLine("Storing account information.");
-                    _accountSettings["#default"].StringValue =_accountName;
+                    _accountSettings["#default"].StringValue = _accountName;
                     if (!string.IsNullOrEmpty(_accountName)) {
                         _accountSettings[_accountName, "key"].EncryptedStringValue = _accountKey;
                     }
@@ -162,105 +171,102 @@ Azure [options] action <parameters>
                 var command = parameters.FirstOrDefault().ToLower();
                 parameters = parameters.Skip(1);
 
-                switch( command ) {
+                switch (command) {
                     case "copy":
                     case "cp":
-                        if( parameters.Count() <1 ||  parameters.Count() > 2 ) {
+                        if (parameters.Count() < 1 || parameters.Count() > 2) {
                             throw new CoAppException("Command 'copy' has one or two parameters.");
                         }
-                        
+
                         var from = parameters.FirstOrDefault();
                         var to = parameters.Skip(1).FirstOrDefault();
                         var fromContainer = GetContainerName(from);
                         var toContainer = GetContainerName(to);
 
-                        if( string.IsNullOrEmpty(fromContainer) && string.IsNullOrEmpty(toContainer) ) {
+                        if (string.IsNullOrEmpty(fromContainer) && string.IsNullOrEmpty(toContainer)) {
                             throw new CoAppException("For command 'copy', at least one parameter must have a <container>:");
-                        } 
+                        }
 
-                        if(!string.IsNullOrEmpty(fromContainer) && !string.IsNullOrEmpty(toContainer)  ) {
+                        if (!string.IsNullOrEmpty(fromContainer) && !string.IsNullOrEmpty(toContainer)) {
                             return CopyFromAzureToAzure(fromContainer, GetRemoteFileMask(from), toContainer, GetRemoteFileMask(to));
                         }
 
-                        if(!string.IsNullOrEmpty(fromContainer) ) {
+                        if (!string.IsNullOrEmpty(fromContainer)) {
                             return CopyFromAzureToLocal(fromContainer, GetRemoteFileMask(from), to);
                         }
 
-                        return CopyFromLocalToAzure(from, toContainer,GetRemoteFileMask(to) );
+                        return CopyFromLocalToAzure(from, toContainer, GetRemoteFileMask(to));
 
                     case "dir":
                     case "ls":
-                        if(parameters.Count() > 1 ) {
-                           throw new CoAppException("Command 'dir' takes zero or one parameters."); 
+                        if (parameters.Count() > 1) {
+                            throw new CoAppException("Command 'dir' takes zero or one parameters.");
                         }
 
                         var dirPath = parameters.FirstOrDefault();
-                        if( string.IsNullOrEmpty(dirPath)) {
+                        if (string.IsNullOrEmpty(dirPath)) {
                             return ListContainers();
                         }
                         var dirContainer = GetContainerName(dirPath);
-                        if( string.IsNullOrEmpty(dirContainer)) {
-                            throw new CoAppException("Command 'dir' parameter must specify a <container>:"); 
+                        if (string.IsNullOrEmpty(dirContainer)) {
+                            throw new CoAppException("Command 'dir' parameter must specify a <container>:");
                         }
                         return ListFiles(dirContainer, GetRemoteFileMask(dirPath));
-                        
 
                     case "erase":
                     case "del":
-                        if(parameters.Count() != 1 ) {
-                           throw new CoAppException("Command 'erase' requires one parameter."); 
+                        if (parameters.Count() != 1) {
+                            throw new CoAppException("Command 'erase' requires one parameter.");
                         }
 
                         var erasePath = parameters.FirstOrDefault();
                         var eraseContainer = GetContainerName(erasePath);
-                        if( string.IsNullOrEmpty(eraseContainer)) {
-                            throw new CoAppException("Command 'erase' parameter must specify <container>:"); 
+                        if (string.IsNullOrEmpty(eraseContainer)) {
+                            throw new CoAppException("Command 'erase' parameter must specify <container>:");
                         }
                         var eraseMask = GetRemoteFileMask(erasePath);
-                        if( string.IsNullOrEmpty(eraseMask)) {
-                            throw new CoAppException("Command 'erase' parameter must specify a file mask."); 
+                        if (string.IsNullOrEmpty(eraseMask)) {
+                            throw new CoAppException("Command 'erase' parameter must specify a file mask.");
                         }
                         return Erase(eraseContainer, eraseMask);
-                        
+
                     case "rd":
                     case "rmdir":
-                        if(parameters.Count() != 1 ) {
-                           throw new CoAppException("Command 'rmdir' requires one parameter."); 
+                        if (parameters.Count() != 1) {
+                            throw new CoAppException("Command 'rmdir' requires one parameter.");
                         }
 
                         var rmdirPath = parameters.FirstOrDefault();
                         var rmdirContainer = GetContainerName(rmdirPath);
-                        if( string.IsNullOrEmpty(rmdirContainer)) {
-                            throw new CoAppException("Command 'rmdir' parameter must specify <container>:"); 
+                        if (string.IsNullOrEmpty(rmdirContainer)) {
+                            throw new CoAppException("Command 'rmdir' parameter must specify <container>:");
                         }
-                        if( !string.IsNullOrEmpty( GetRemoteFileMask(rmdirPath))) {
-                            throw new CoAppException("Command 'rmdir' parameter must not specify a file mask."); 
+                        if (!string.IsNullOrEmpty(GetRemoteFileMask(rmdirPath))) {
+                            throw new CoAppException("Command 'rmdir' parameter must not specify a file mask.");
                         }
                         return RemoveContainer(rmdirContainer);
 
                     case "md":
                     case "mkdir":
-                        
-                        if(parameters.Count() != 1 ) {
-                           throw new CoAppException("Command 'mkdir' requires one parameter."); 
+
+                        if (parameters.Count() != 1) {
+                            throw new CoAppException("Command 'mkdir' requires one parameter.");
                         }
 
                         var mkdirPath = parameters.FirstOrDefault();
                         var mkdirContainer = GetContainerName(mkdirPath);
-                        if( string.IsNullOrEmpty(mkdirContainer)) {
-                            throw new CoAppException("Command 'mkdir' parameter must specify <container>:"); 
+                        if (string.IsNullOrEmpty(mkdirContainer)) {
+                            throw new CoAppException("Command 'mkdir' parameter must specify <container>:");
                         }
-                        if( !string.IsNullOrEmpty( GetRemoteFileMask(mkdirPath))) {
-                            throw new CoAppException("Command 'mkdir' parameter must not specify a file mask."); 
+                        if (!string.IsNullOrEmpty(GetRemoteFileMask(mkdirPath))) {
+                            throw new CoAppException("Command 'mkdir' parameter must not specify a file mask.");
                         }
                         return CreateContainer(mkdirContainer);
                 }
-
-            }catch (ConsoleException e) {
+            } catch (ConsoleException e) {
                 // these exceptions are expected
                 return Fail("   {0}", e.Message);
-            }
-            catch (Exception e) {
+            } catch (Exception e) {
                 // it's probably okay to crash within proper commands (because something else crashed)
                 Console.WriteLine(e.StackTrace);
                 return Fail("   {0}", e.Message);
@@ -270,8 +276,8 @@ Azure [options] action <parameters>
         }
 
         private int CreateContainer(string container) {
-            _cloudFileSystem.Connect(_accountName,_accountKey);
-            if(_cloudFileSystem.ContainerExists(container)) {
+            _cloudFileSystem.Connect(_accountName, _accountKey);
+            if (_cloudFileSystem.ContainerExists(container)) {
                 throw new ConsoleException("Container '{0}' already exists.", container);
             }
             _cloudFileSystem.AddContainer(container);
@@ -279,8 +285,8 @@ Azure [options] action <parameters>
         }
 
         private int RemoveContainer(string container) {
-            _cloudFileSystem.Connect(_accountName,_accountKey);
-            if(!_cloudFileSystem.ContainerExists(container)) {
+            _cloudFileSystem.Connect(_accountName, _accountKey);
+            if (!_cloudFileSystem.ContainerExists(container)) {
                 throw new ConsoleException("Container '{0}' does not exist.", container);
             }
 
@@ -289,29 +295,29 @@ Azure [options] action <parameters>
         }
 
         private int Erase(string container, string fileMask) {
-            _cloudFileSystem.Connect(_accountName,_accountKey);
+            _cloudFileSystem.Connect(_accountName, _accountKey);
 
-            if(!_cloudFileSystem.ContainerExists(container)) {
+            if (!_cloudFileSystem.ContainerExists(container)) {
                 throw new ConsoleException("Container '{0}' does not exist.", container);
             }
 
             var blobs = _cloudFileSystem.GetBlobNames(container, fileMask);
-            if( !blobs.Any() ) {
+            if (!blobs.Any()) {
                 throw new ConsoleException("Container '{0}' does not contain files matching '{1}'.", container, fileMask);
             }
 
-            foreach( var blob in blobs) {
+            foreach (var blob in blobs) {
                 Console.WriteLine("Deleting :{0}", blob);
                 _cloudFileSystem.EraseBlob(container, blob);
             }
-            
+
             return 0;
         }
 
         private int ListFiles(string container, string fileMask) {
-            _cloudFileSystem.Connect(_accountName,_accountKey);
+            _cloudFileSystem.Connect(_accountName, _accountKey);
 
-            if(!_cloudFileSystem.ContainerExists(container)) {
+            if (!_cloudFileSystem.ContainerExists(container)) {
                 throw new ConsoleException("Container '{0}' does not exist.", container);
             }
 
@@ -320,8 +326,8 @@ Azure [options] action <parameters>
             }
 
             var blobs = _cloudFileSystem.GetBlobs(container, fileMask);
-            
-            if( !blobs.Any() ) {
+
+            if (!blobs.Any()) {
                 throw new ConsoleException("Container '{0}' does not contain files matching '{1}'.", container, fileMask);
             }
 
@@ -329,63 +335,63 @@ Azure [options] action <parameters>
                 select new {
                     Date = ((DateTime)blob.date).ToShortDateString(),
                     Time = ((DateTime)blob.date).ToShortTimeString(),
-                    Length = blob.length, 
-                    File = _uri ? blob.uri.AbsoluteUri.ToString() :  blob.name,
+                    Length = blob.length,
+                    File = _uri ? blob.uri.AbsoluteUri.ToString() : blob.name,
                 }).ToTable().ConsoleOut();
-                
+
             return 0;
         }
 
         private int ListContainers() {
-            _cloudFileSystem.Connect(_accountName,_accountKey);
-            foreach( var container in _cloudFileSystem.ContainerNames ) {
+            _cloudFileSystem.Connect(_accountName, _accountKey);
+            foreach (var container in _cloudFileSystem.ContainerNames) {
                 Console.WriteLine(container);
             }
             return 0;
         }
 
         private int CopyFromLocalToAzure(string @from, string container, string remoteFilePrefix) {
-            _cloudFileSystem.Connect(_accountName,_accountKey);
-            if(!_cloudFileSystem.ContainerExists(container)) {
+            _cloudFileSystem.Connect(_accountName, _accountKey);
+            if (!_cloudFileSystem.ContainerExists(container)) {
                 throw new ConsoleException("Container '{0}' does not exist.", container);
             }
-            
+
             var localFiles = from.FindFilesSmarter().Select(each => each.ToLower()).ToArray();
             var blobNames = localFiles.GetMinimalPaths().ToArray();
-            for(var i = 0; i< localFiles.Length;i++) {
-                _cloudFileSystem.WriteBlob(container, blobNames[i],localFiles[i], (progress) => {
-                      ConsoleExtensions.PrintProgressBar("{0} => {1}:{2}".format(localFiles[i], container, blobNames[i]), progress);
-                });   
+            for (var i = 0; i < localFiles.Length; i++) {
+                _cloudFileSystem.WriteBlob(container, blobNames[i], localFiles[i], (progress) => {
+                    "{0} => {1}:{2}".format(localFiles[i], container, blobNames[i]).PrintProgressBar(progress);
+                });
                 Console.WriteLine();
             }
-            
+
             return 0;
         }
 
         private int CopyFromAzureToLocal(string container, string fileMask, string to) {
-            _cloudFileSystem.Connect(_accountName,_accountKey);
-            if(!_cloudFileSystem.ContainerExists(container)) {
+            _cloudFileSystem.Connect(_accountName, _accountKey);
+            if (!_cloudFileSystem.ContainerExists(container)) {
                 throw new ConsoleException("Container '{0}' does not exist.", container);
             }
-             if (string.IsNullOrEmpty(fileMask)) {
-                 fileMask = "*";
-             }
+            if (string.IsNullOrEmpty(fileMask)) {
+                fileMask = "*";
+            }
 
-            if( string.IsNullOrEmpty(to)) {
+            if (string.IsNullOrEmpty(to)) {
                 to = Environment.CurrentDirectory;
             }
 
-            if(!Directory.Exists(to) ) {
+            if (!Directory.Exists(to)) {
                 throw new ConsoleException("Unknown directory '{0}'", to);
-            } 
+            }
 
             var blobs = _cloudFileSystem.GetBlobs(container, fileMask);
-                        
-            if( !blobs.Any() ) {
+
+            if (!blobs.Any()) {
                 throw new ConsoleException("Container '{0}' does not contain files matching '{1}'.", container, fileMask);
             }
 
-            foreach( var blob in blobs ) {
+            foreach (var blob in blobs) {
                 string blobName = blob.name.ToString();
                 string uri = blob.uri.ToString();
                 var fullPath = Path.Combine(to, blobName).GetFullPath();
@@ -394,8 +400,8 @@ Azure [options] action <parameters>
                     Directory.CreateDirectory(parentDir);
                 }
 
-                _cloudFileSystem.ReadBlob(container, uri, fullPath,(progress) => {
-                      ConsoleExtensions.PrintProgressBar("\r{0}:{1} => {2}".format(container, blobName, fullPath), progress);
+                _cloudFileSystem.ReadBlob(container, uri, fullPath, (progress) => {
+                    "\r{0}:{1} => {2}".format(container, blobName, fullPath).PrintProgressBar(progress);
                 });
                 Console.WriteLine();
             }
@@ -403,21 +409,20 @@ Azure [options] action <parameters>
         }
 
         private int CopyFromAzureToAzure(string fromContainer, string getRemoteFileMask, string toContainer, string s) {
-
             return 0;
         }
 
         #region fail/help/logo
 
         /// <summary>
-        /// Print an error to the console
+        ///   Print an error to the console
         /// </summary>
-        /// <param name="text">An error message</param>
-        /// <param name="par">A format string</param>
-        /// <returns>Always returns 1</returns>
-        /// <seealso cref="String.Format(string, object[])"/>
+        /// <param name="text"> An error message </param>
+        /// <param name="par"> A format string </param>
+        /// <returns> Always returns 1 </returns>
+        /// <seealso cref="string.Format(string, object[])" />
         /// <remarks>
-        /// Format according to http://msdn.microsoft.com/en-us/library/b1csw23d.aspx
+        ///   Format according to http://msdn.microsoft.com/en-us/library/b1csw23d.aspx
         /// </remarks>
         public static int Fail(string text, params object[] par) {
             Logo();
@@ -428,26 +433,26 @@ Azure [options] action <parameters>
         }
 
         /// <summary>
-        /// Print usage notes (help) and logo
+        ///   Print usage notes (help) and logo
         /// </summary>
-        /// <returns>Always returns 0</returns>
+        /// <returns> Always returns 0 </returns>
         private static int Help() {
             Logo();
             using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black)) {
-                help.Print();
+                Console.WriteLine(help);
             }
             return 0;
         }
 
         /// <summary>
-        /// Print program logo, information an copyright notice once.
+        ///   Print program logo, information an copyright notice once.
         /// </summary>
         /// <remarks>
-        /// Recurring calls to the function will not print "\n" (blank line) instead.
+        ///   Recurring calls to the function will not print "\n" (blank line) instead.
         /// </remarks>
         private static void Logo() {
             using (new ConsoleColors(ConsoleColor.Cyan, ConsoleColor.Black)) {
-                Assembly.GetEntryAssembly().Logo().Print();
+                Console.WriteLine(Assembly.GetEntryAssembly().Logo());
             }
             Assembly.GetEntryAssembly().SetLogo("");
         }

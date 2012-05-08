@@ -29,6 +29,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     using System.IO;
     using System.Runtime.InteropServices;
     using System.Text;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
@@ -37,7 +38,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     ///   http://msdn.microsoft.com/en-us/library/bb202818.aspx
     /// </summary>
     public class VarTable : ResourceTableHeader {
-        private Dictionary<UInt16, UInt16> _languages = new Dictionary<UInt16, UInt16>();
+        private IDictionary<UInt16, UInt16> _languages = new XDictionary<UInt16, UInt16>();
 
         /// <summary>
         ///   A new table of language and code page identifier pairs.
@@ -63,7 +64,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         /// <summary>
         ///   A dictionary of language and code page identifier pairs.
         /// </summary>
-        public Dictionary<UInt16, UInt16> Languages {
+        public IDictionary<UInt16, UInt16> Languages {
             get { return _languages; }
         }
 

@@ -16,6 +16,7 @@ namespace CoApp.Toolkit.Scan.Types
     using System.IO;
     using System.Linq;
     using System.Xml.Serialization;
+    using Collections;
 
     /// <summary>
 	/// Contains information about a scanned file.
@@ -97,7 +98,7 @@ namespace CoApp.Toolkit.Scan.Types
 		}
 
 
-        private static readonly Dictionary<string,ScannedFileType> _scannedFileType = new Dictionary<string,ScannedFileType>();
+        private static readonly IDictionary<string,ScannedFileType> _scannedFileType = new XDictionary<string,ScannedFileType>();
 
 		/// <summary>
 		/// Determines the type of the file by checking extensions and full names.
@@ -138,7 +139,7 @@ namespace CoApp.Toolkit.Scan.Types
 		}
 
         // yeah, this doesn't make it exactly trivial to use, but it's easier to fill coming from the config files.
-        public static Dictionary<ScannedFileType, List<string>> KnownPatterns = new Dictionary<ScannedFileType, List<string>> {
+        public static IDictionary<ScannedFileType, List<string>> KnownPatterns = new XDictionary<ScannedFileType, List<string>> {
             { ScannedFileType.C , new List<string> {".c"}},
             { ScannedFileType.Cpp, new List<string>{".cpp", ".cxx", ".cc", ".c++"} },
             { ScannedFileType.Header, new List<string>{".h", ".hpp", ".hxx", ".hh"} },

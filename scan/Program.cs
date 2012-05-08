@@ -138,14 +138,14 @@ scan [options] <source-root-path>
 		{
 			Logo();
 			using (new ConsoleColors(ConsoleColor.White, ConsoleColor.Black))
-				HELP.Print();
+				Console.WriteLine(HELP);
 			return 0;
 		}
 
 		private void Logo()
 		{
 			using (new ConsoleColors(ConsoleColor.Cyan, ConsoleColor.Black))
-				this.Assembly().Logo().Print();
+				Console.WriteLine(this.Assembly().Logo());
 			this.Assembly().SetLogo("");
 		}
 

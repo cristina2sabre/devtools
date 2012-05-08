@@ -306,7 +306,7 @@ int DownloadFile(const wchar_t* URL, const wchar_t* destinationFilename) {
 	HANDLE localFile = NULL;
 	int percentComplete =0;
 	
-	DebugPrintf(L"HTTP GET: [%s]",URL);
+	// DebugPrintf(L"HTTP GET: [%s]",URL);
 
 	__try {
 		ZeroMemory(&urlComponents, sizeof(urlComponents));
@@ -584,7 +584,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 		
 		// is the localized file in the bootstrap folder?
 		result = UrlOrPathCombine( BootstrapFolder, localizedFilename, L'\\');
-		DebugPrintf(L"Trying %s", result );
+		//DebugPrintf(L"Trying %s", result );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
 		}
@@ -592,7 +592,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 
 		// is the localized file in the msi folder?
 		result = UrlOrPathCombine( MsiFolder, localizedFilename, L'\\');
-		DebugPrintf(L"Trying %s", result );
+		//DebugPrintf(L"Trying %s", result );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
 		}
@@ -600,7 +600,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 
 		// try the MSI for the localized file 
 		result = ExtractFileFromMSI( MsiFile, localizedFilename );
-		DebugPrintf(L"Trying %s::%s", MsiFile, localizedFilename );
+		//DebugPrintf(L"Trying %s::%s", MsiFile, localizedFilename );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
 		}
@@ -612,7 +612,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 
 		// is the standard file in the bootstrap folder?
 		result = UrlOrPathCombine( MsiFolder, filename, L'\\');
-		DebugPrintf(L"Trying %s", result );
+		//DebugPrintf(L"Trying %s", result );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
 		}
@@ -620,7 +620,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 
 		// is the standard file in the msi folder?
 		result = UrlOrPathCombine( BootstrapFolder, filename, L'\\');
-		DebugPrintf(L"Trying %s", result );
+		//DebugPrintf(L"Trying %s", result );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
 		}
@@ -628,7 +628,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 
 		// try the MSI for the regular file 
 		result = ExtractFileFromMSI( MsiFile, filename );
-		DebugPrintf(L"Trying %s::%s", MsiFile, filename );
+		//DebugPrintf(L"Trying %s::%s", MsiFile, filename );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
 		}
@@ -640,7 +640,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 
 		if( !IsNullOrEmpty(additionalDownloadServer) ) {
 			// try regular file off the bootstrap server
-			DebugPrintf(L"Trying %s::%s", additionalDownloadServer, filename );
+			//DebugPrintf(L"Trying %s::%s", additionalDownloadServer, filename );
 			result = DownloadRelativeFile( additionalDownloadServer, filename  );
 			
 			if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
@@ -654,7 +654,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 		//------------------------
 
 		// try localized file off the bootstrap server
-		DebugPrintf(L"Trying %s::%s", BootstrapServerUrl, localizedFilename );
+		//DebugPrintf(L"Trying %s::%s", BootstrapServerUrl, localizedFilename );
 		result = DownloadRelativeFile( BootstrapServerUrl, localizedFilename);
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
@@ -662,7 +662,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 		DeleteString(&result);
 
 		// try localized file off the coapp server
-		DebugPrintf(L"Trying %s::%s", CoAppServerUrl, localizedFilename );
+		//DebugPrintf(L"Trying %s::%s", CoAppServerUrl, localizedFilename );
 		result = DownloadRelativeFile( CoAppServerUrl, localizedFilename );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
@@ -674,7 +674,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 		//------------------------
 
 		// try regular file off the bootstrap server
-		DebugPrintf(L"Trying %s::%s", BootstrapServerUrl, filename );
+		//DebugPrintf(L"Trying %s::%s", BootstrapServerUrl, filename );
 		result = DownloadRelativeFile( BootstrapServerUrl, filename  );
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 
@@ -682,7 +682,7 @@ wchar_t* AcquireFile( const wchar_t* filename, BOOL searchOnline, const wchar_t*
 		DeleteString(&result);
 
 		// try regular file off the coapp server
-		DebugPrintf(L"Trying %s::%s", CoAppServerUrl, filename );
+		//DebugPrintf(L"Trying %s::%s", CoAppServerUrl, filename );
 		result = DownloadRelativeFile( CoAppServerUrl, filename);
 		if( FileExists( result ) && IsEmbeddedSignatureValid(result) ) {
 			__leave; // found it 

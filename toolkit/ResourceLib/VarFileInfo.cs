@@ -28,6 +28,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     using System.Collections.Generic;
     using System.IO;
     using System.Text;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
@@ -36,7 +37,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     ///   http://msdn.microsoft.com/en-us/library/aa909193.aspx
     /// </summary>
     public class VarFileInfo : ResourceTableHeader {
-        private Dictionary<string, VarTable> _vars = new Dictionary<string, VarTable>();
+        private IDictionary<string, VarTable> _vars = new XDictionary<string, VarTable>();
 
         /// <summary>
         ///   A new hardware independent dictionary of language and code page identifier tables.
@@ -56,7 +57,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         /// <summary>
         ///   A hardware independent dictionary of language and code page identifier tables.
         /// </summary>
-        public Dictionary<string, VarTable> Vars {
+        public IDictionary<string, VarTable> Vars {
             get { return _vars; }
         }
 

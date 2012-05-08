@@ -29,6 +29,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     using System.IO;
     using System.Runtime.InteropServices;
     using System.Text;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
@@ -39,7 +40,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     ///   NULL terminating character. There may be no characters in text, in which case length is zero.
     /// </summary>
     public class StringResource : Resource {
-        private Dictionary<UInt16, string> _strings = new Dictionary<UInt16, string>();
+        private IDictionary<UInt16, string> _strings = new XDictionary<UInt16, string>();
 
         /// <summary>
         ///   A new string resource.
@@ -78,7 +79,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         /// <summary>
         ///   String collection in this resource.
         /// </summary>
-        public Dictionary<UInt16, string> Strings {
+        public IDictionary<UInt16, string> Strings {
             get { return _strings; }
             set { _strings = value; }
         }

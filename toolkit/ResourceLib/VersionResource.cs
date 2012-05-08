@@ -28,6 +28,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     using System.Collections.Generic;
     using System.IO;
     using System.Text;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
@@ -39,7 +40,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     public class VersionResource : Resource {
         private FixedFileInfo _fixedfileinfo = new FixedFileInfo();
         private ResourceTableHeader _header = new ResourceTableHeader("VS_VERSION_INFO");
-        private Dictionary<string, ResourceTableHeader> _resources = new Dictionary<string, ResourceTableHeader>();
+        private IDictionary<string, ResourceTableHeader> _resources = new XDictionary<string, ResourceTableHeader>();
 
         /// <summary>
         ///   An existing version resource.
@@ -72,7 +73,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         /// <summary>
         ///   A dictionary of resource tables.
         /// </summary>
-        public Dictionary<string, ResourceTableHeader> Resources {
+        public IDictionary<string, ResourceTableHeader> Resources {
             get { return _resources; }
         }
 

@@ -22,14 +22,15 @@ namespace CoApp.Toolkit.Win32 {
     using System.IO;
     using System.Reflection;
     using Collections;
+    using Developer.Toolkit.Collections;
+    using Developer.Toolkit.Scripting.Languages.CSV;
     using Exceptions;
     using Extensions;
     using Logging;
-    using Scripting.Languages.CSV;
     using Utility;
 
     public class PEInfo {
-        private static readonly Dictionary<string, PEInfo> _cache = new Dictionary<string, PEInfo>();
+        private static readonly IDictionary<string, PEInfo> _cache = new XDictionary<string, PEInfo>();
 
         private static readonly Lazy<ProgramFinder> _programFinder =
             new Lazy<ProgramFinder>(

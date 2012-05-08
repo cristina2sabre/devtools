@@ -213,7 +213,7 @@ namespace CoApp.Toolkit.DynamicXml {
             }
         }
     }
-
+#if FALSE
     internal class CompilerImpl : MarshalByRefObject {
         CodeDomProvider _provider;
 
@@ -278,5 +278,5 @@ namespace CoApp.Toolkit.DynamicXml {
             return sb.ToString();
         }
     }
-
+#endif
 }

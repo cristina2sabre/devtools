@@ -1,15 +1,28 @@
-﻿namespace CoApp.RepositoryService {
+﻿//-----------------------------------------------------------------------
+// <copyright company="CoApp Project">
+//     Copyright (c) 2010-2012 Garrett Serack and CoApp Contributors. 
+//     Contributors can be discovered using the 'git log' command.
+//     All rights reserved.
+// </copyright>
+// <license>
+//     The software is licensed under the Apache 2.0 License (the "License")
+//     You may not use the software except in compliance with the License. 
+// </license>
+//-----------------------------------------------------------------------
+
+namespace CoApp.RepositoryService {
     using System;
     using System.Collections.Generic;
     using System.Linq;
     using System.IO;
     using System.Security.Cryptography;
-    using Ionic.Zlib;
+    
     using Microsoft.Win32;
-    using CoApp.Toolkit.Exceptions;
     using CoApp.Toolkit.Extensions;
     using Microsoft.WindowsAzure;
     using Microsoft.WindowsAzure.StorageClient;
+    using Toolkit.Compression;
+    using Toolkit.Exceptions;
     using RegistryView = Toolkit.Configuration.RegistryView;
 
     public class CloudFileSystem {

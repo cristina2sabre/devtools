@@ -28,6 +28,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     using System.Collections.Generic;
     using System.IO;
     using System.Text;
+    using CoApp.Toolkit.Collections;
     using CoApp.Toolkit.Win32;
 
     /// <summary>
@@ -36,7 +37,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
     ///   See http://msdn.microsoft.com/en-us/library/aa909192.aspx for more information.
     /// </summary>
     public class StringTable : ResourceTableHeader {
-        private Dictionary<string, StringTableEntry> _strings = new Dictionary<string, StringTableEntry>();
+        private IDictionary<string, StringTableEntry> _strings = new XDictionary<string, StringTableEntry>();
 
         /// <summary>
         ///   A new string table.
@@ -63,7 +64,7 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         /// <summary>
         ///   Resource strings.
         /// </summary>
-        public Dictionary<string, StringTableEntry> Strings {
+        public IDictionary<string, StringTableEntry> Strings {
             get { return _strings; }
         }
 

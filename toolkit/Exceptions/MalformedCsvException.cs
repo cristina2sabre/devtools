@@ -19,12 +19,13 @@
 //	FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 //	ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-namespace CoApp.Toolkit.Exceptions
+namespace CoApp.Developer.Toolkit.Exceptions
 {
     using System;
     using System.Globalization;
     using System.Runtime.Serialization;
-    using CoApp.Toolkit.Scripting.Languages.CSV.Resources;
+    using CoApp.Developer.Toolkit.Scripting.Languages.CSV.Resources;
+    using CoApp.Toolkit.Exceptions;
 
     /// <summary>
 	/// Represents the exception that is thrown when a CSV file is malformed.

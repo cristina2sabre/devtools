@@ -66,16 +66,19 @@
     <Reference Include="PresentationFramework" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="managed-bootstrap\AreYouSure.xaml.cs">
-      <DependentUpon>AreYouSure.xaml</DependentUpon>
+    <Compile Include="managed-bootstrap\PopupQuestion.xaml.cs">
+      <DependentUpon>PopupQuestion.xaml</DependentUpon>
     </Compile>
     <Compile Include="managed-bootstrap\AsyncDownloader.cs" />
     <Compile Include="managed-bootstrap\Gac.cs" />
     <Compile Include="managed-bootstrap\Logger.cs" />
+    <Compile Include="managed-bootstrap\MultifactorProgressTracker.cs" />
     <Compile Include="managed-bootstrap\NativeMethods.cs" />
+    <Compile Include="managed-bootstrap\ProgressFactor.cs" />
+    <Compile Include="managed-bootstrap\ProgressWeight.cs" />
     <Compile Include="managed-bootstrap\SingleStep.cs" />
     <Compile Include="managed-bootstrap\WinVerifyTrustResult.cs" />
-    <Page Include="managed-bootstrap\AreYouSure.xaml">
+    <Page Include="managed-bootstrap\PopupQuestion.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
