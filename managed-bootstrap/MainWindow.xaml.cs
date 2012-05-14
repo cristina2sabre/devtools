@@ -123,11 +123,11 @@ namespace CoApp.Bootstrapper {
             });
 
             // try to short circuit early
-            if (SingleStep.Progress.Progress >= 98 && !SingleStep.Cancelling) {
-                MainWin = this;
+            /* if (SingleStep.Progress.Progress >= 98 && !SingleStep.Cancelling) {
+               MainWin = this;
                 Topmost = false;
                 return;
-            }
+            }*/
 
             // after the window is shown...
             Loaded += (o, e) => {
@@ -142,8 +142,8 @@ namespace CoApp.Bootstrapper {
 
         internal static void Fail(LocalizedMessage message, string messageText) {
             if (!SingleStep.Cancelling) {
+                SingleStep.Cancelling = true;
                 WhenReady += () => {
-                    SingleStep.Cancelling = true;
                     messageText = GetString(message, messageText);
 
                     MainWin.containerPanel.Background = new SolidColorBrush(

@@ -177,6 +177,7 @@ namespace CoApp.Autopackage {
         }
 
         private void AddFeedIcons() {
+#if disabled
             if (Model.IconImage != null) {
                 AddIcon("DEFAULT", Model.IconImage);
             }
@@ -190,6 +191,7 @@ namespace CoApp.Autopackage {
                     // Console.WriteLine("{0} --- {1}", e.Message,e.StackTrace);
                 }
             }
+#endif
         }
 
         private void AddIcon(string name, Image img) {
@@ -483,8 +485,9 @@ namespace CoApp.Autopackage {
             }
 
             Event<Verbose>.Raise("==> Linking Wix object files into MSI.");
+            Event<Verbose>.Raise(@"-nologo -sice:77  -sw1076 -out ""{0}"" ""{1}""".format( msiFilename, wixobj));
 
-            rc = Tools.WixLinker.Exec(@"-nologo -sw1076  -out ""{0}"" ""{1}""", msiFilename, wixobj);
+            rc = Tools.WixLinker.Exec(@"-nologo -sice:77  -sw1076 -out ""{0}"" ""{1}""", msiFilename, wixobj);
             if (rc != 0) {
                 Event<Error>.Raise(MessageCode.WixLinkerError, null, "{0}\r\n{1}", Tools.WixLinker.StandardOut, Tools.WixLinker.StandardError);
                 return null;

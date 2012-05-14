@@ -36,7 +36,7 @@ namespace CoApp.RepositoryService {
             response.WriteString("<html><body>Relative Path: {0}<br>GET : <br>", relativePath);
 
             foreach( var key in message ) {
-                response.WriteString("&nbsp;&nbsp;&nbsp;{0} = {1}<br>", key, message.GetValueAsString(key));
+                response.WriteString("&nbsp;&nbsp;&nbsp;{0} = {1}<br>", key, message[key]);
             }
 
             response.WriteString("</body></html>");
@@ -46,7 +46,7 @@ namespace CoApp.RepositoryService {
 
         
         public override Task Post(HttpListenerResponse response, string relativePath, UrlEncodedMessage message) {
-            var payload = (string)message.GetValueAsString("payload");
+            var payload = message["payload"];
             if( payload == null ) {
                 response.StatusCode = 500;
                 response.Close();

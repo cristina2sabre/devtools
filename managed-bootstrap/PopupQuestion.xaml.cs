@@ -33,6 +33,9 @@ namespace CoApp.Bootstrapper {
             MessageText.SetBinding(TextBlock.TextProperty, new Binding("QuestionText") {Source = this});
             CancelText.SetBinding(TextBlock.TextProperty, new Binding("NegativeText") {Source = this});
             ContinueText.SetBinding(TextBlock.TextProperty, new Binding("PositiveText") {Source = this});
+            Loaded += (o, e) => {
+                Topmost = false;
+            };
         }
 
         private void NegativeButtonClick(object sender, RoutedEventArgs e) {

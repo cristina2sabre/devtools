@@ -104,7 +104,10 @@ namespace CoApp.Developer.Toolkit.ResourceLib {
         /// <param name = "key">Key.</param>
         /// <returns>An entry within the string table.</returns>
         public string this[string key] {
-            get { return _strings[key].Value; }
+            get {
+                var v = _strings[key];
+                return v == null ? null : _strings[key].Value;
+            }
             set {
                 StringTableEntry sr = null;
                 if (!_strings.TryGetValue(key, out sr)) {

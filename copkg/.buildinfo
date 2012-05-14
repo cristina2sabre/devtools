@@ -7,6 +7,17 @@
     packager: "garrett serack <garretts@microsoft.com>";
 }
 
+private {
+    uses: install;
+    build-command: @"
+    for /F %%G in ('dir /s /b /o-n  coapp.devtools*.msi') do ( 
+        az copy %%G files:
+        echo http://coapp.blob.core.windows.net/files/%%~nxG
+        goto :eof
+    )
+    ";    
+}
+
 release { 
     default : true;
     // builds the binaries in "Release" mode but does not sign them.
@@ -27,8 +38,9 @@ package {
     uses : sign;
     build-command: @"
         cscript //e:jscript scripts\increment-build-version.js
-        REM Add the coapp tools folder to the end of the path, in case we don't have the tools in the path
-        PATH=%PATH%;%CD%\ext\tools
+        REM Add the newly built folder to the path, 
+        REM And coapp tools folder to the end of the path, in case we don't have the tools available.
+        PATH=%CD%\output\any\Release\bin\;%PATH%;%CD%\ext\tools
         
         cd copkg
         autopackage coapp.devtools.autopkg  || goto failed

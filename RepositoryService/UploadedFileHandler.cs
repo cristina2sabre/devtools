@@ -215,7 +215,7 @@ namespace CoApp.RepositoryService {
                                     (x) => {
                                         var name = "[{0}-{1}-{2}]".format(pkg.Name, pkg.Version, pkg.Architecture);
 
-                                        var summary = pkg.Summary;
+                                        var summary = pkg.PackageDetails.SummaryDescription;
                                         var l1 = 138 - (name.Length + x.Result.Length);
                                         if( summary.Length > l1 ) {
                                             summary = summary.Substring(0, l1 - 1) + "\u2026";

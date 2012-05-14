@@ -781,11 +781,11 @@ namespace CoApp.Autopackage {
             }
 
             
-            ChildIcons = DependentPackages.ToXDictionary(each => each.CanonicalName.ToString(), each => each.Icon);
+            // ChildIcons = DependentPackages.ToXDictionary(each => each.CanonicalName.ToString(), each => each.Icon);
 
             var licenses = Source.MetadataRules.GetPropertyValues("licenses");
             if( licenses.Any()) {
-                PackageDetails.Licenses = new List<License>();
+                PackageDetails.Licenses = new XList<License>();
             }
             foreach( var l in licenses) {
 
@@ -820,13 +820,13 @@ namespace CoApp.Autopackage {
             PackageDetails.IsNsfw = Source.MetadataRules.GetPropertyValue("nsfw").IsTrue();
             PackageDetails.Stability = (sbyte)(Source.MetadataRules.GetPropertyValue("stability").ToInt32());
 
-            PackageDetails.Tags = Source.MetadataRules.GetPropertyValues("tags").ToList();
+            PackageDetails.Tags = Source.MetadataRules.GetPropertyValues("tags").ToXList();
             
 
             var contributors = Source.MetadataRules.GetPropertyValues("contributors");
 
             if (!contributors.IsNullOrEmpty()) {
-                PackageDetails.Contributors = new List<Identity>();
+                PackageDetails.Contributors = new XList<Identity>();
 
                 foreach( var contributor in contributors ) {
                     var identityRules = Source.IdentityRules.GetRulesByParameter(contributor);

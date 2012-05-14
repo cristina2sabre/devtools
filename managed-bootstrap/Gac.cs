@@ -329,9 +329,35 @@ using System.Text;
         }
     }
 
+
+
     [ComVisible(false)]
     public class AssemblyCacheEnum
     {
+        private static UInt64 Parse( string[] parts, int index) {
+            int i =0;
+            return parts.Length < index ? 0 : (UInt64)(Int32.TryParse(parts[index], out i) ? i : 0);
+        }
+
+        internal static UInt64 VersionStringToUInt64(string version) {
+            var vers = (version ?? "0").Split('.');
+            return (((Parse(vers, 0)) << 48) + ((Parse(vers, 1)) << 32) + ((Parse(vers, 2)) << 16) + Parse(vers, 3));
+        }
+
+        public static IEnumerable<UInt64> GetAssemblyVersions(string assemblyName) {
+            return GetAssemblyStrongNames(assemblyName).Select(assembly => (from p in assembly.Split(", ".ToCharArray(), StringSplitOptions.RemoveEmptyEntries)
+                select p.Split('=') into kvp
+                where kvp[0].Equals("Version", StringComparison.InvariantCultureIgnoreCase)
+                select VersionStringToUInt64(kvp[1])).FirstOrDefault());
+        }
+
+        public static IEnumerable<string> GetAssemblyStrongNames( string assemblyName ) {
+            var ace = new AssemblyCacheEnum(assemblyName);
+            for (string assembly = ace.GetNextAssembly(); assembly != null; assembly = ace.GetNextAssembly()) {
+                yield return assembly;
+            }
+        }
+
         // null means enumerate all the assemblies
         public AssemblyCacheEnum(String assemblyName)
         {
