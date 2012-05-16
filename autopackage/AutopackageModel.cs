@@ -314,7 +314,7 @@ namespace CoApp.Autopackage {
 
             if( !Name.Equals("coapp", StringComparison.CurrentCultureIgnoreCase) ) {
                 // don't auto-add the coapp.toolkit dependency for the toolkit itself.
-                var toolkitPackage = AutopackageMain.PackageManager.QueryPackages(CanonicalName.CoAppItself, null, null, null, null, null, null, null, null, null, false).Result.OrderByDescending(each => each.Version).FirstOrDefault();
+                var toolkitPackage = AutopackageMain.PackageManager.QueryPackages(CanonicalName.CoAppItself).Result.OrderByDescending(each => each.Version).FirstOrDefault();
                 
                 if( toolkitPackage != null ) {
                     AutopackageMain.PackageManager.GetPackageDetails(toolkitPackage.CanonicalName).Wait();
@@ -329,7 +329,7 @@ namespace CoApp.Autopackage {
                 // for now, lets just see if we can do a package match, and grab just that packages
                 // in the future, we should figure out how to make better decisions for this.
                 try {
-                    var packages = AutopackageMain.PackageManager.QueryPackages(pkgName, null, null, null, null, null, null, null, false, null, false).Result.OrderByDescending(each => each.Version).ToArray();
+                    var packages = AutopackageMain.PackageManager.QueryPackages(pkgName).Result.OrderByDescending(each => each.Version).ToArray();
 
                     if( packages.IsNullOrEmpty()) {
                         Event<Error>.Raise( MessageCode.FailedToFindRequiredPackage, null, "Failed to find package '{0}'.", pkgName);
